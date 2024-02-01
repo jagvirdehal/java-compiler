@@ -131,7 +131,10 @@ CompilationUnit:
     | ImportDeclarations TypeDeclarations   // No PackageDeclaration
     | PackageDeclaration TypeDeclarations   // No ImportDeclarations
     | PackageDeclaration ImportDeclarations // No TypeDeclarations
-    |                                       // Empty
+    | PackageDeclaration
+    | ImportDeclarations
+    | TypeDeclarations
+    | /* Empty */
     ;
 
 PackageDeclaration:
