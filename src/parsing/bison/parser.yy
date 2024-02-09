@@ -306,8 +306,8 @@ CompilationUnit:
     | PackageDeclaration ImportDeclarations // No TypeDeclarations
         { MAKE_CompilationUnit($$, $1, $2, EMPTY_PAIR); }
     | PackageDeclaration { MAKE_CompilationUnit($$, $1, EMPTY_PAIR, EMPTY_PAIR); }
-    | ImportDeclaration { MAKE_CompilationUnit($$, EMPTY_OPT, $1, EMPTY_PAIR); }
-    | TypeDeclaration { MAKE_CompilationUnit($$, EMPTY_OPT, EMPTY_PAIR, $1); }
+    | ImportDeclarations { MAKE_CompilationUnit($$, EMPTY_OPT, $1, EMPTY_PAIR); }
+    | TypeDeclarations { MAKE_CompilationUnit($$, EMPTY_OPT, EMPTY_PAIR, $1); }
     | /* Empty */ { MAKE_CompilationUnit($$, EMPTY_OPT, EMPTY_PAIR, EMPTY_PAIR); }
     ;
 
