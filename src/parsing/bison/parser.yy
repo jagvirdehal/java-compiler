@@ -41,13 +41,17 @@
 %token <AstNode*> ELSE
 %token <AstNode*> EXTENDS
 %token <AstNode*> IMPLEMENTS
-%token <AstNode*> PUBLIC
-%token <AstNode*> PROTECTED
-%token <AstNode*> STATIC
-%token <AstNode*> ABSTRACT
+
+// Modifiers
+%token <Modifier::PUBLIC> PUBLIC
+%token <Modifier::PROTECTED> PROTECTED
+%token <Modifier::ABSTRACT> ABSTRACT
+%token <Modifier::STATIC> STATIC
+%token <Modifier::NATIVE> NATIVE
+%token <Modifier::FINAL> FINAL
+
 %token <AstNode*> THIS
 %token <AstNode*> VOID
-%token <AstNode*> FINAL
 %token <AstNode*> IMPORT
 %token <AstNode*> CLASS
 %token <AstNode*> NEW
@@ -67,7 +71,6 @@
 %token <AstNode*> COMMA
 %token <AstNode*> DOT
 %token <AstNode*> IDENTIFIER
-%token <AstNode*> NATIVE
 %token <AstNode*> ASSIGNMENT
 %token <AstNode*> RETURN
 
@@ -112,15 +115,58 @@
 /*****************************************************************************/
 
 /************************* NONTERMINALS *************************/
-%nterm <AstNode*> CompilationUnit
-%nterm <AstNode*> PackageDeclaration
-%nterm <AstNode*> ImportDeclarations
-%nterm <AstNode*> TypeDeclarations
+
+// TODO: Create typedef for 
+//      - QualifiedIdentifier   vector<Identifier>*
+//      - Identifier            string
+//      - Modifier              enum {...}
+//      - 
+//      - 
+//      - 
+//      - 
+
+%{
+typedef string                                              Identifier;
+typedef vector<Identifier>*                                 QualifiedIdentifier;
+typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     ImportDeclarations;
+typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     TypeDeclarations;
+%}
+
+%nterm <CompilationUnit*> CompilationUnit
+
+%nterm <QualifiedIdentifier> PackageDeclaration      // QualifiedIdentifier
+%nterm <QualifiedIdentifier> QualifiedIdentifier
+%nterm <Identifier> Identifier
+
+%nterm <ImportDeclarations> ImportDeclarations
+%nterm <TypeDeclarations> TypeDeclarations
+
+%nterm <vector<Modifier>> Modifiers
+%nterm <Modifier> Modifier
+
+%nterm <ClassDeclaration*> ClassDeclaration
+%nterm <FieldDeclaration*> FieldDeclaration
+%nterm <Type*> Type
+%nterm <PrimitiveType> PrimitiveType
+%nterm <VariableDeclarator*> VariableDeclarator
+%nterm <MethodDeclaration*> MethodDeclaration
+%nterm <Block*> Block
+%nterm <FormalParameter*> FormalParameter
+%nterm <LocalVariableDeclaration*> LocalVariableDeclaration
+%nterm <InterfaceDeclaration*> InterfaceDeclaration
+%nterm <IfThenStatement*> IfThenStatement
+%nterm <IfThenElseStatement*> IfThenElseStatement
+%nterm <WhileStatement*> WhileStatement
+%nterm <ForStatement*> ForStatement
+%nterm <Statement> Statement
+%nterm <ExpressionStatement> ExpressionStatement
+%nterm <ReturnStatement*> ReturnStatement
+%nterm <Expression> Expression
+
 %nterm <AstNode*> ImportDeclaration
 %nterm <AstNode*> SingleTypeImportDeclaration
 %nterm <AstNode*> TypeImportOnDemandDeclaration
 %nterm <AstNode*> TypeDeclaration
-%nterm <AstNode*> Expression
 %nterm <AstNode*> AssignmentExpression
 %nterm <AstNode*> Assignment
 %nterm <AstNode*> LeftHandSide
@@ -147,15 +193,10 @@
 %nterm <AstNode*> ArgumentList
 %nterm <AstNode*> Arguments
 %nterm <AstNode*> MethodInvocation
-%nterm <AstNode*> Type
-%nterm <AstNode*> PrimitiveType
 %nterm <AstNode*> IntegralType
 %nterm <AstNode*> BooleanType
 %nterm <AstNode*> ClassOrInterfaceType
 %nterm <AstNode*> ReferenceType
-%nterm <AstNode*> InterfaceDeclaration
-%nterm <AstNode*> Modifiers
-%nterm <AstNode*> Modifier
 %nterm <AstNode*> InterfaceModifiersOpt
 %nterm <AstNode*> InterfaceType
 %nterm <AstNode*> ExtendsInterfaces
@@ -167,7 +208,6 @@
 %nterm <AstNode*> AbstractMethodDeclaration
 %nterm <AstNode*> AbstractMethodModifiersOpt
 %nterm <AstNode*> AbstractMethodModifiers
-%nterm <AstNode*> ClassDeclaration
 %nterm <AstNode*> InterfacesOpt
 %nterm <AstNode*> Interfaces
 %nterm <AstNode*> InterfaceTypeList
@@ -177,45 +217,30 @@
 %nterm <AstNode*> ClassBodyDeclaration
 %nterm <AstNode*> ClassMemberDeclaration
 %nterm <AstNode*> ClassBody
-%nterm <AstNode*> FieldDeclaration
 %nterm <AstNode*> VariableInitializer
-%nterm <AstNode*> MethodDeclaration
 %nterm <AstNode*> MethodHeader
 %nterm <AstNode*> MethodDeclarator
 %nterm <AstNode*> MethodBody
 %nterm <AstNode*> FormalParameterListOpt
 %nterm <AstNode*> FormalParameterList
 %nterm <AstNode*> AbstractMethodModifier
-%nterm <AstNode*> FormalParameter
 %nterm <AstNode*> VariableDeclaratorId
-%nterm <AstNode*> Statement
 %nterm <AstNode*> StatementWithoutTrailingSubstatement
-%nterm <AstNode*> ExpressionStatement
 %nterm <AstNode*> StatementExpression
 %nterm <AstNode*> StatementNoShortIf
 %nterm <AstNode*> EmptyStatement
-%nterm <AstNode*> IfThenStatement
-%nterm <AstNode*> IfThenElseStatement
 %nterm <AstNode*> IfThenElseStatementNoShortIf
-%nterm <AstNode*> WhileStatement
 %nterm <AstNode*> WhileStatementNoShortIf
-%nterm <AstNode*> ForStatement
 %nterm <AstNode*> ForStatementNoShortIf
 %nterm <AstNode*> ForInitOpt
 %nterm <AstNode*> ForInit
 %nterm <AstNode*> ForUpdateOpt
 %nterm <AstNode*> ExpressionOpt
-%nterm <AstNode*> ReturnStatement
 %nterm <AstNode*> ParExpression
-%nterm <AstNode*> QualifiedIdentifier
-%nterm <AstNode*> Identifier
-%nterm <AstNode*> LocalVariableDeclaration
-%nterm <AstNode*> Block
 %nterm <AstNode*> BlockStatementsOpt
 %nterm <AstNode*> BlockStatements
 %nterm <AstNode*> BlockStatement
 %nterm <AstNode*> LocalVariableDeclarationStatement
-%nterm <AstNode*> VariableDeclarator
 /******************** END NONTERMINALS ********************/
 
 %parse-param {AstNode **root}
@@ -225,6 +250,41 @@
 #define MAKE_ONE(me, you)   me = you
 #define MAKE_NODE(me, symbol, children...) \
     me = new AstNode((symbol)); me->addChild(children)
+
+// Empty parameters
+#define EMPTY_OPT                   (std::nullopt_t)
+#define EMPTY_PAIR                  ({EMPTY_OPT, EMPTY_OPT})
+#define EMPTY_VECTOR(type)          (new vector<type>) // Create empty vector with `type`
+#define EMPTY_PAIRVECTOR(type)      (new pair<EMPTY_VECTOR(type), EMPTY_VECTOR(type)>) // Create pair of empty vectors
+
+// Expects (param?, pair?, pair?)
+//      Includes conversion from empty vectors to empty_opt
+#define MAKE_CompilationUnit(me, package, import, type) \
+    me = new CompilationUnit( \
+        (package), \
+        (import).first, \
+        (import).second, \
+        (((type).first && !(type).first.empty()) ? (type).first : EMPTY_PAIR ), \
+        (((type).second && !(type).second.empty()) ? (type).second : EMPTY_PAIR ), \
+    )
+
+// Expects (vector*, item)
+#define MAKE_Vector(me, prev_vector, item) \
+    prev_vector->push_back(item); \
+    me = prev_vector
+
+// Expects (pair{vector*, vector*}*, pair{item?, item?})
+#define MAKE_PairVector(me, prev_vector, item) \
+    if ( (item.first.has_value()) ) { prev_vector->first->push_back(item.first); } \
+    if ( (item.second.has_value()) ) { prev_vector->second->push_back(item.second); } \
+    me = prev_vector
+
+// Expects (item?, item?)
+#define MAKE_Pair(me, first, second) \
+    me = {first, second}
+
+
+
 %}
 
 // Grammar
@@ -238,54 +298,54 @@ Start:
 
 CompilationUnit:
     PackageDeclaration ImportDeclarations TypeDeclarations
-        { MAKE_NODE($$, symbol_kind::S_CompilationUnit, $1, $2, $3); }
+        { MAKE_CompilationUnit($$, $1, $2, $3); }
     | ImportDeclarations TypeDeclarations   // No PackageDeclaration
-        { MAKE_NODE($$, symbol_kind::S_CompilationUnit, $1, $2); }
+        { MAKE_CompilationUnit($$, EMPTY_OPT, $1, $2); }
     | PackageDeclaration TypeDeclarations   // No ImportDeclarations
-        { MAKE_NODE($$, symbol_kind::S_CompilationUnit, $1, $2); }
+        { MAKE_CompilationUnit($$, $1, EMPTY_PAIR, $2); }
     | PackageDeclaration ImportDeclarations // No TypeDeclarations
-        { MAKE_NODE($$, symbol_kind::S_CompilationUnit, $1, $2); }
-    | PackageDeclaration { MAKE_ONE($$, $1); }
-    | ImportDeclaration { MAKE_ONE($$, $1); }
-    | TypeDeclaration { MAKE_ONE($$, $1); }
-    | /* Empty */ { MAKE_EMPTY($$); }
+        { MAKE_CompilationUnit($$, $1, $2, EMPTY_PAIR); }
+    | PackageDeclaration { MAKE_CompilationUnit($$, $1, EMPTY_PAIR, EMPTY_PAIR); }
+    | ImportDeclaration { MAKE_CompilationUnit($$, EMPTY_OPT, $1, EMPTY_PAIR); }
+    | TypeDeclaration { MAKE_CompilationUnit($$, EMPTY_OPT, EMPTY_PAIR, $1); }
+    | /* Empty */ { MAKE_CompilationUnit($$, EMPTY_OPT, EMPTY_PAIR, EMPTY_PAIR); }
     ;
 
 PackageDeclaration:
     PACKAGE QualifiedIdentifier SEMI_COLON
-        { MAKE_NODE($$, symbol_kind::S_PackageDeclaration, $1, $2, $3); }
+        { $$ = $2; }
     ;
 
 ImportDeclarations:
-    ImportDeclaration { MAKE_ONE($$, $1); }
+    ImportDeclaration { MAKE_PairVector($$, EMPTY_PAIRVECTOR(QualifiedIdentifier), $1); }
     | ImportDeclarations ImportDeclaration
-        { MAKE_NODE($$, symbol_kind::S_ImportDeclarations, $1, $2); }
+        { MAKE_PairVector($$, $1, $2); }
     ;
 
 TypeDeclarations:
-    TypeDeclaration { MAKE_ONE($$, $1); }
-    | TypeDeclarations TypeDeclaration { MAKE_NODE($$, symbol_kind::S_TypeDeclarations, $1, $2); }
+    TypeDeclaration { MAKE_PairVector($$, EMPTY_PAIRVECTOR(QualifiedIdentifier), $1); }
+    | TypeDeclarations TypeDeclaration { MAKE_PairVector($$, $1, $2); }
     ;
 
 ImportDeclaration:
-	SingleTypeImportDeclaration { MAKE_ONE($$, $1); }
-	| TypeImportOnDemandDeclaration { MAKE_ONE($$, $1); }
+	SingleTypeImportDeclaration { MAKE_Pair($$, $1, EMPTY_OPT); }
+	| TypeImportOnDemandDeclaration { MAKE_Pair($$, EMPTY_OPT, $1); }
     ;
 
 SingleTypeImportDeclaration:
     IMPORT QualifiedIdentifier SEMI_COLON // TypeName
-        { MAKE_NODE($$, symbol_kind::S_SingleTypeImportDeclaration, $1, $2, $3); }
+        { $$ = $2; }
     ;
 
 TypeImportOnDemandDeclaration:
     IMPORT QualifiedIdentifier DOT ASTERISK SEMI_COLON // PackageOrTypeName
-        { MAKE_NODE($$, symbol_kind::S_TypeImportOnDemandDeclaration, $1, $2, $3, $4, $5); }
+        { $$ = $2; }
     ;
 
 TypeDeclaration:
-    ClassDeclaration { MAKE_ONE($$, $1); }
-    | InterfaceDeclaration { MAKE_ONE($$, $1); }
-    | SEMI_COLON { MAKE_ONE($$, $1); }
+    ClassDeclaration { MAKE_Pair($$, $1, EMPTY_OPT); }
+    | InterfaceDeclaration { MAKE_Pair($$, EMPTY_OPT, $1); }
+    | SEMI_COLON { $$ = EMPTY_PAIR; }
     ;
 
 /*---------------------- Expressions ----------------------*/
@@ -511,8 +571,8 @@ InterfaceDeclaration:
     ;
 
 Modifiers:
-    Modifier { MAKE_ONE($$, $1); }
-    | Modifiers Modifier { MAKE_NODE($$, symbol_kind::S_Modifiers, $1, $2); }
+    Modifier { MAKE_Vector($$, EMPTY_VECTOR(Modifier), $1); }
+    | Modifiers Modifier { MAKE_Vector($$, $1, $2); }
     ;
 
 Modifier:
@@ -808,8 +868,8 @@ ParExpression:
     ;
 
 QualifiedIdentifier:
-    Identifier { MAKE_ONE($$, $1); }
-    | QualifiedIdentifier DOT Identifier { MAKE_NODE($$, symbol_kind::S_QualifiedIdentifier, $1, $2, $3); }
+    Identifier { MAKE_Vector($$, EMPTY_VECTOR(Identifier), $1); }
+    | QualifiedIdentifier DOT Identifier { MAKE_Vector($$, $1, $3); }
     ;
 
 Identifier:
