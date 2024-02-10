@@ -11,7 +11,9 @@
   # include <string>
   # include <memory>
   # include <vector>
-  # include "../../ast/ast.h"
+  # include "../../variant-ast/ast.h"
+  // using namespace Variant;
+  using namespace std;
 
   class Driver;
 }
@@ -43,12 +45,12 @@
 %token <AstNode*> IMPLEMENTS
 
 // Modifiers
-%token <Modifier::PUBLIC> PUBLIC
-%token <Modifier::PROTECTED> PROTECTED
-%token <Modifier::ABSTRACT> ABSTRACT
-%token <Modifier::STATIC> STATIC
-%token <Modifier::NATIVE> NATIVE
-%token <Modifier::FINAL> FINAL
+%token <Modifier> PUBLIC
+%token <Modifier> PROTECTED
+%token <Modifier> ABSTRACT
+%token <Modifier> STATIC
+%token <Modifier> NATIVE
+%token <Modifier> FINAL
 
 %token <AstNode*> THIS
 %token <AstNode*> VOID
@@ -116,20 +118,11 @@
 
 /************************* NONTERMINALS *************************/
 
-// TODO: Create typedef for 
-//      - QualifiedIdentifier   vector<Identifier>*
-//      - Identifier            string
-//      - Modifier              enum {...}
-//      - 
-//      - 
-//      - 
-//      - 
-
 %{
-typedef string                                              Identifier;
-typedef vector<Identifier>*                                 QualifiedIdentifier;
-typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     ImportDeclarations;
-typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     TypeDeclarations;
+// typedef string                                              Identifier;
+// typedef vector<Identifier>*                                 QualifiedIdentifier;
+// typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     ImportDeclarations;
+// typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     TypeDeclarations;
 %}
 
 %nterm <CompilationUnit*> CompilationUnit
@@ -144,24 +137,43 @@ typedef pair<QualifiedIdentifier, QualifiedIdentifier>*     TypeDeclarations;
 %nterm <vector<Modifier>> Modifiers
 %nterm <Modifier> Modifier
 
-%nterm <ClassDeclaration*> ClassDeclaration
-%nterm <FieldDeclaration*> FieldDeclaration
-%nterm <Type*> Type
-%nterm <PrimitiveType> PrimitiveType
-%nterm <VariableDeclarator*> VariableDeclarator
-%nterm <MethodDeclaration*> MethodDeclaration
-%nterm <Block*> Block
-%nterm <FormalParameter*> FormalParameter
-%nterm <LocalVariableDeclaration*> LocalVariableDeclaration
-%nterm <InterfaceDeclaration*> InterfaceDeclaration
-%nterm <IfThenStatement*> IfThenStatement
-%nterm <IfThenElseStatement*> IfThenElseStatement
-%nterm <WhileStatement*> WhileStatement
-%nterm <ForStatement*> ForStatement
-%nterm <Statement> Statement
-%nterm <ExpressionStatement> ExpressionStatement
-%nterm <ReturnStatement*> ReturnStatement
-%nterm <Expression> Expression
+// %nterm <ClassDeclaration*> ClassDeclaration
+// %nterm <FieldDeclaration*> FieldDeclaration
+// %nterm <Type*> Type
+// %nterm <PrimitiveType> PrimitiveType
+// %nterm <VariableDeclarator*> VariableDeclarator
+// %nterm <MethodDeclaration*> MethodDeclaration
+// %nterm <Block*> Block
+// %nterm <FormalParameter*> FormalParameter
+// %nterm <LocalVariableDeclaration*> LocalVariableDeclaration
+// %nterm <InterfaceDeclaration*> InterfaceDeclaration
+// %nterm <IfThenStatement*> IfThenStatement
+// %nterm <IfThenElseStatement*> IfThenElseStatement
+// %nterm <WhileStatement*> WhileStatement
+// %nterm <ForStatement*> ForStatement
+// %nterm <Statement> Statement
+// %nterm <ExpressionStatement> ExpressionStatement
+// %nterm <ReturnStatement*> ReturnStatement
+// %nterm <Expression> Expression
+
+%nterm <AstNode*> ClassDeclaration
+%nterm <AstNode*> FieldDeclaration
+%nterm <AstNode*> Type
+%nterm <AstNode*> PrimitiveType
+%nterm <AstNode*> VariableDeclarator
+%nterm <AstNode*> MethodDeclaration
+%nterm <AstNode*> Block
+%nterm <AstNode*> FormalParameter
+%nterm <AstNode*> LocalVariableDeclaration
+%nterm <AstNode*> InterfaceDeclaration
+%nterm <AstNode*> IfThenStatement
+%nterm <AstNode*> IfThenElseStatement
+%nterm <AstNode*> WhileStatement
+%nterm <AstNode*> ForStatement
+%nterm <AstNode*> Statement
+%nterm <AstNode*> ExpressionStatement
+%nterm <AstNode*> ReturnStatement
+%nterm <AstNode*> Expression
 
 %nterm <AstNode*> ImportDeclaration
 %nterm <AstNode*> SingleTypeImportDeclaration

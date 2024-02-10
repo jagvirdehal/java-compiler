@@ -12,7 +12,7 @@ namespace Variant {
 struct BinaryExpression;
 struct UnaryExpression;
 struct Integer;
-struct ExpressionStatement;
+// struct ExpressionStatement;
 struct CompilationUnit;
 
 // Aryaman Work
@@ -35,15 +35,20 @@ struct MethodDeclaration;
 struct Type;
 struct VariableDeclarator;
 struct LocalVariableDeclaration;
-struct IfThenStatement;
-struct IfThenElseStatement;
-struct WhileStatement;
-struct ForStatement;
-struct ReturnStatement;
-struct Assignment;
-struct MethodInvocation;
-struct ClassInstanceCreationExpression;
-struct Block;
+struct IfThenStatement {};
+struct IfThenElseStatement {};
+struct WhileStatement {};
+struct ForStatement {};
+struct ReturnStatement {};
+struct Assignment {};
+struct MethodInvocation {};
+struct ClassInstanceCreationExpression {};
+struct Block {};
+
+// Temp structs for completion
+struct ImportDeclarations {};
+struct TypeDeclarations {};
+
 
 typedef std::variant <
     Assignment,
@@ -111,9 +116,9 @@ struct Integer : public AstNodeCommon {
     Integer(int a) {this->integer = a;}
 };
 
-struct ExpressionStatement : public AstNodeCommon {
-    std::unique_ptr<AstNode> statement_expression;
-};
+// struct ExpressionStatement : public AstNodeCommon {
+//     std::unique_ptr<AstNode> statement_expression;
+// };
 
 struct Identifier: public AstNodeCommon {
     std::string name; // Idenfier name
@@ -197,10 +202,11 @@ struct LocalVariableDeclaration: public AstNodeCommon {
     LocalVariableDeclaration(
         // Type& type,
         // VariableDeclarator& variable_declarator
-    ) : 
+    );
+    // : 
         // type(std::move(type)),
         // variable_declarator(std::move(variable_declarator))
-    {}
+    // {}
 };
 
 struct InterfaceDeclaration: public AstNodeCommon {
@@ -251,47 +257,47 @@ struct IfThenElseStatment: public AstNodeCommon {
     {}
 };
 
-struct WhileStatement: public AstNodeCommon {
-    // Expression expression; // condition clause
-    Statement statement; // loop body
+// struct WhileStatement: public AstNodeCommon {
+//     // Expression expression; // condition clause
+//     Statement statement; // loop body
 
-    WhileStatement(
-        // Expression& expression,
-        Statement& statement
-    ) : 
-        // expression{std::move(expression)},
-        statement{std::move(statement)}
-    {}
-};
+//     WhileStatement(
+//         // Expression& expression,
+//         Statement& statement
+//     ) : 
+//         // expression{std::move(expression)},
+//         statement{std::move(statement)}
+//     {}
+// };
 
-struct ForStatement: public AstNodeCommon {
-    std::optional<Statement> statement_init; // ForInit
-    // std::optional<Expression> expression; // condition clause
-    std::optional<Statement> statement_update; // ForUpdate
-    Statement statement_body; // Body
+// struct ForStatement: public AstNodeCommon {
+//     std::optional<Statement> statement_init; // ForInit
+//     // std::optional<Expression> expression; // condition clause
+//     std::optional<Statement> statement_update; // ForUpdate
+//     Statement statement_body; // Body
 
-    ForStatement(
-        std::optional<Statement>& statement_init,
-        // std::optional<Expression>& expression,
-        std::optional<Statement>& statement_update,
-        Statement& statement_body
-    ) : 
-        statement_init{std::move(statement_init)},
-        // expression{std::move(expression)},
-        statement_update{std::move(statement_update)},
-        statement_body{std::move(statement_body)}
-    {}
-};
+//     ForStatement(
+//         std::optional<Statement>& statement_init,
+//         // std::optional<Expression>& expression,
+//         std::optional<Statement>& statement_update,
+//         Statement& statement_body
+//     ) : 
+//         statement_init{std::move(statement_init)},
+//         // expression{std::move(expression)},
+//         statement_update{std::move(statement_update)},
+//         statement_body{std::move(statement_body)}
+//     {}
+// };
 
-struct ReturnStatement: public AstNodeCommon {
-    // std::optional<Expression> expression;
+// struct ReturnStatement: public AstNodeCommon {
+//     // std::optional<Expression> expression;
 
-    ReturnStatement(
-        // std::optional<Expression>& expression
-    ) : 
-        // expression{std::move(expression)}
-    {}
-};
+//     ReturnStatement(
+//         // std::optional<Expression>& expression
+//     ) : 
+//         // expression{std::move(expression)}
+//     {}
+// };
 
 
 /*************************/
@@ -302,7 +308,7 @@ struct Expression;
 struct FormalParameter;
 struct Block;
 struct LocalVariableDeclaration;
-struct Statement;
+// struct Statement;
 
 enum PrimitiveType {
     BYTE, SHORT, INT, CHAR, BOOLEAN, VOID
@@ -347,17 +353,17 @@ struct MethodDeclaration {
         body{std::move(body)} {}
 };
 
-struct Block {
-    std::vector<LocalVariableDeclaration> variable_declarations;
-    std::vector<Statement> statements;
+// struct Block {
+//     std::vector<LocalVariableDeclaration> variable_declarations;
+//     std::vector<Statement> statements;
 
-    Block(
-        std::vector<LocalVariableDeclaration>& variable_declarations, 
-        std::vector<Statement>& statements
-    ) :
-        variable_declarations{std::move(variable_declarations)}, 
-        statements{std::move(statements)} {}
-};
+//     Block(
+//         std::vector<LocalVariableDeclaration>& variable_declarations, 
+//         std::vector<Statement>& statements
+//     ) :
+//         variable_declarations{std::move(variable_declarations)}, 
+//         statements{std::move(statements)} {}
+// };
 
 struct FormalParameter {
     std::unique_ptr<Type> type;
