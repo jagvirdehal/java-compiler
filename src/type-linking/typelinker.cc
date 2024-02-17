@@ -84,7 +84,7 @@ TypeDeclaration resolveQualifiedIdentifier(QualifiedIdentifier *node, PackageDec
             result = &std::get<InterfaceDeclarationObject>(*interface_entry); // If the interface is in the environment, set the result to the interface
         }
     }
-
+    
     // if(classes.find(type_name) != classes.end()) {
     //     result = &classes[type_name]; // If the class is in the environment, set the result to the class
     // } else if(interfaces.find(type_name) != interfaces.end()) {
@@ -153,6 +153,19 @@ TypeDeclaration checkCurrentPackage(vector<AstNodeVariant> &asts, string package
                 if(cu_variant.interface_declarations.size() > 0 && cu_variant.interface_declarations[0].interface_name->name == type_name) {
                     // If we found an interface  in the package, get the package decl object from the root package, and return the class declaration object
                     return cu_variant.interface_declarations[0].environment;
+                }
+            } else if (package_name == "") {
+                if(!cu_variant.package_declaration) {
+                     if (cu_variant.class_declarations.size() > 0 && cu_variant.class_declarations[0].class_name->name == type_name) {
+                    // If we found a class in the package, get the package decl object from the root package, and return the class declaration object
+                        return cu_variant.class_declarations[0].environment;
+                    }
+
+                    // If the interface name is the same as the type name, return that interface
+                    if(cu_variant.interface_declarations.size() > 0 && cu_variant.interface_declarations[0].interface_name->name == type_name) {
+                    // If we found an interface  in the package, get the package decl object from the root package, and return the class declaration object
+                        return cu_variant.interface_declarations[0].environment;
+                    }
                 }
             }
         }
@@ -359,7 +372,7 @@ void TypeLinker::operator()(Type &node) {
         QualifiedIdentifier id = get<QualifiedIdentifier>(*node.non_array_type.get()); 
         TypeDeclaration result = static_cast<ClassDeclarationObject*>(nullptr);
         if (id.identifiers.size() > 1) {
-            // std::cout << "resolving qualified" << std::endl;
+            std::cout << "resolving qualified" << std::endl;
             result = resolveQualifiedIdentifier(&id, root_env, package_name, asts); // Resolve the qualified identifier
         } else {
             Identifier one_id = id.identifiers[0];
