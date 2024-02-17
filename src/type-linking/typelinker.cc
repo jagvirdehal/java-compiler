@@ -84,18 +84,23 @@ TypeDeclaration resolveQualifiedIdentifier(QualifiedIdentifier *node, PackageDec
             result = &std::get<InterfaceDeclarationObject>(*interface_entry); // If the interface is in the environment, set the result to the interface
         }
     }
+
+    std::size_t found = type_name.find_last_of(".");
+    string classname = type_name.substr(found + 1);
     
     string package_prefix = node->getPackagePrefix(); // Get the package prefix
     for (auto &ast: asts) {
+        
         if(holds_alternative<CompilationUnit>(ast)) {
             auto &cu_variant = get<CompilationUnit>(ast);
+            // cout << "package prefix: " << package_prefix << " type name: " << type_name <<  endl;
             if(cu_variant.package_declaration && cu_variant.package_declaration->getQualifiedName() == package_prefix) { // If the package name of the cu_variant is the same as the package prefix
-                if (cu_variant.class_declarations.size() > 0 && cu_variant.class_declarations[0].class_name->name == type_name) {
+                if (cu_variant.class_declarations.size() > 0 && cu_variant.class_declarations[0].class_name->name == classname) {
                     // If we found a class in the package, get the package decl object from the root package, and return the class declaration object
                     return cu_variant.class_declarations[0].environment;
                 }
 
-                if(cu_variant.interface_declarations.size() > 0 && cu_variant.interface_declarations[0].interface_name->name == type_name) {
+                if(cu_variant.interface_declarations.size() > 0 && cu_variant.interface_declarations[0].interface_name->name == classname) {
                     // If we found an interface  in the package, get the package decl object from the root package, and return the class declaration object
                     return cu_variant.interface_declarations[0].environment;
                 }
@@ -194,8 +199,13 @@ TypeDeclaration checkCurrentPackage(vector<AstNodeVariant> &asts, string package
 }
 
 TypeDeclaration checkSingleImports(vector<QualifiedIdentifier> single_type_import_declarations, vector<AstNodeVariant> &asts, string type_name) {
-    for (auto &import: single_type_import_declarations) {
-        string import_prefix = import.getPackagePrefix(); // get package prefix
+    set<string> import_prefixes;
+
+    for(auto &import: single_type_import_declarations) {
+        import_prefixes.insert(import.getPackagePrefix());
+    }
+
+    for (auto &import_prefix: import_prefixes) {
         // java.lang.String -> package name = java.lang
             
         for (const AstNodeVariant &ast: asts) {
@@ -224,10 +234,14 @@ TypeDeclaration checkTypeOnDemandImports(vector<QualifiedIdentifier> type_import
    // Check on demand imports for current idenfitier
     bool found = false;
     TypeDeclaration result = static_cast<ClassDeclarationObject*>(nullptr);
+    set<string> import_prefixes;
+
+    for(auto &import: type_import_on_demand_declarations) {
+        import_prefixes.insert(import.getQualifiedName());
+    }
 
     // For each on demand import
-    for (auto &import: type_import_on_demand_declarations) {
-        string import_prefix = import.getQualifiedName(); // Get the prefix, ie. the qualified name of the package
+    for (auto &import_prefix: import_prefixes) {
         for (const AstNodeVariant &ast: asts) {
             if(holds_alternative<CompilationUnit>(ast)) {
                 auto &cu_variant = get<CompilationUnit>(ast);
@@ -389,7 +403,7 @@ void TypeLinker::operator()(Type &node) {
         QualifiedIdentifier id = get<QualifiedIdentifier>(*node.non_array_type.get()); 
         TypeDeclaration result = static_cast<ClassDeclarationObject*>(nullptr);
         if (id.identifiers.size() > 1) {
-            std::cout << "resolving qualified" << std::endl;
+            // std::cout << "resolving qualified" << std::endl;
             result = resolveQualifiedIdentifier(&id, root_env, package_name, asts); // Resolve the qualified identifier
         } else {
             Identifier one_id = id.identifiers[0];
@@ -407,92 +421,91 @@ void TypeLinker::operator()(Type &node) {
     this->visit_children(node);
 }
 
-// void TypeLinker::operator()(ClassDeclaration &node) {
-//     // Resolve implemented types to interfaces
-//     for (auto &implements_qualified_identifier : node.implements) {
-//         TypeDeclaration implemented 
-//             = resolveQualifiedIdentifier(&implements_qualified_identifier, root_env, package_name, asts);
+void TypeLinker::operator()(ClassDeclaration &node) {
+    // Resolve implemented types to interfaces
+    for (auto &implements_qualified_identifier : node.implements) {
+        TypeDeclaration implemented 
+            = resolveQualifiedIdentifier(&implements_qualified_identifier, root_env, package_name, asts);
 
-//         if (auto interface_type = std::get_if<InterfaceDeclarationObject*>(&implemented)) {
-//             node.environment->implemented.emplace_back(*interface_type);
-//         } else {
-//             throw SemanticError("Class attempting to implement class");
-//         }
-//     }
+        if (auto interface_type = std::get_if<InterfaceDeclarationObject*>(&implemented)) {
+            node.environment->implemented.emplace_back(*interface_type);
+        } else {
+            throw SemanticError("Class attempting to implement class");
+        }
+    }
 
-//     // Resolve extended type to class
-//     if (node.extends_class) {
-//         TypeDeclaration extended 
-//             = resolveQualifiedIdentifier(node.extends_class.get(), root_env, package_name, asts);
-//         if (auto class_type = std::get_if<ClassDeclarationObject*>(&extended)) {
-//             node.environment->extended = *class_type;
-//         } else {
-//             throw SemanticError("Class attempting to extend interface");
-//         }
-//     }
+    // Resolve extended type to class
+    if (node.extends_class) {
+        TypeDeclaration extended 
+            = resolveQualifiedIdentifier(node.extends_class.get(), root_env, package_name, asts);
+        if (auto class_type = std::get_if<ClassDeclarationObject*>(&extended)) {
+            node.environment->extended = *class_type;
+        } else {
+            throw SemanticError("Class attempting to extend interface");
+        }
+    }
 
-//     visit_children(node);
-// }
+    visit_children(node);
+}
 
-// void TypeLinker::operator()(InterfaceDeclaration &node) {
-//     // Resolve extended types to interfaces
-//     for (auto &extends_qualified_identifier : node.extends_class) {
-//         TypeDeclaration extended 
-//             = resolveQualifiedIdentifier(&extends_qualified_identifier, root_env, package_name, asts);
+void TypeLinker::operator()(InterfaceDeclaration &node) {
+    // Resolve extended types to interfaces
+    for (auto &extends_qualified_identifier : node.extends_class) {
+        TypeDeclaration extended 
+            = resolveQualifiedIdentifier(&extends_qualified_identifier, root_env, package_name, asts);
 
-//         if (auto interface_type = std::get_if<InterfaceDeclarationObject*>(&extended)) {
-//             node.environment->extended.emplace_back(*interface_type);
-//         } else {
-//             throw SemanticError("Interface attempting to extend class");
-//         }
-//     }
+        if (auto interface_type = std::get_if<InterfaceDeclarationObject*>(&extended)) {
+            node.environment->extended.emplace_back(*interface_type);
+        } else {
+            throw SemanticError("Interface attempting to extend class");
+        }
+    }
 
-//     visit_children(node);
-// }
+    visit_children(node);
+}
 
-// void TypeLinker::operator()(FieldDeclaration &node) {
-//     // Resolve type
-//     visit_children(node);
-//     node.environment->type = node.type->node;
-// }
+void TypeLinker::operator()(FieldDeclaration &node) {
+    // Resolve type
+    visit_children(node);
+    node.environment->type = node.type->node;
+}
 
-// void TypeLinker::operator()(MethodDeclaration &node) {
-//     // Resolve return type
-//     visit_children(node);
-//     if(node.environment == nullptr) {
-//         throw CompilerDevelopmentError("node.environment is null for method");
-//     }
-//     if(node.type == nullptr) {
-//         // this is constructor case
-//         node.environment->return_type = static_cast<ClassDeclarationObject*>(nullptr);
-//     } else {
-//         node.environment->return_type = node.type->node;
-//     }
-// }
+void TypeLinker::operator()(MethodDeclaration &node) {
+    // Resolve return type
+    visit_children(node);
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for method");
+    }
+    if(node.type == nullptr) {
+        // this is constructor case
+        node.environment->return_type = static_cast<ClassDeclarationObject*>(nullptr);
+    } else {
+        node.environment->return_type = node.type->node;
+    }
+}
 
-// void TypeLinker::operator()(FormalParameter &node) {
-//     // Resolve type
-//     cout << "visiting formal param" << endl;
-//     visit_children(node);
-//     if(node.environment == nullptr) {
-//         throw CompilerDevelopmentError("node.environment is null for formal param");
-//     }
-//     if(node.type == nullptr) {
-//         throw CompilerDevelopmentError("node.type is null for formal param");
-//     } else if(checkNullTypeDeclaration(node.type->node)) {
-//         throw CompilerDevelopmentError("node.type->node is null for formal param");
-//     }
-//     node.environment->type = node.type->node;
-// }
+void TypeLinker::operator()(FormalParameter &node) {
+    // Resolve type
+    visit_children(node);
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for formal param");
+    }
+    if(node.type == nullptr) {
+        throw CompilerDevelopmentError("node.type is null for formal param");
+    } else if(checkNullTypeDeclaration(node.type->node)) {
+        throw CompilerDevelopmentError("node.type->node is null for formal param");
+    }
+    node.environment->type = node.type->node;
+}
 
-// void TypeLinker::operator()(LocalVariableDeclaration &node) {
-//     // Resolve type
-//     visit_children(node);
-//     if(node.environment == nullptr) {
-//         throw CompilerDevelopmentError("node.environment is null for local var");
-//     }
-//     if(node.type == nullptr || checkNullTypeDeclaration(node.type->node)) {
-//         throw CompilerDevelopmentError("node.type->node is null for local var");
-//     }
-//     node.environment->type = node.type->node;
-// }
+void TypeLinker::operator()(LocalVariableDeclaration &node) {
+    // Resolve type
+    visit_children(node);
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for local var");
+    }
+    if(node.type == nullptr || checkNullTypeDeclaration(node.type->node)) {
+        throw CompilerDevelopmentError("node.type->node is null for local var");
+    }
+    node.environment->type = node.type->node;
+}
