@@ -24,12 +24,12 @@ public:
     void operator()(CompilationUnit &node) override;
     void operator()(Type &node) override;
     void operator()(ClassInstanceCreationExpression &node) override;
-    void operator()(ClassDeclaration &node) override;
-    void operator()(InterfaceDeclaration &node) override;
-    void operator()(FieldDeclaration &node) override;
-    void operator()(MethodDeclaration &node) override;
-    void operator()(FormalParameter &node) override;
-    void operator()(LocalVariableDeclaration &node) override;
+    // void operator()(ClassDeclaration &node) override;
+    // void operator()(InterfaceDeclaration &node) override;
+    // void operator()(FieldDeclaration &node) override;
+    // void operator()(MethodDeclaration &node) override;
+    // void operator()(FormalParameter &node) override;
+    // void operator()(LocalVariableDeclaration &node) override;
 
     TypeLinker(PackageDeclarationObject &root_env, CompilationUnit &ast_root, vector<AstNodeVariant> &asts);
 
