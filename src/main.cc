@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
                 return INVALID_PROGRAM;
             }
 
-            AstNodeVariant ast = std::move(*drv.root);
+            AstNodeVariant ast = std::move(*drv.root);            
 
             rc = weeder.weed(ast, infile);
 
@@ -134,6 +134,9 @@ int main(int argc, char *argv[]) {
         } 
     } catch (const SemanticError &e) {
         cerr << "SemanticError Exception occured: " << e.message << "\n";
+        return INVALID_PROGRAM;
+    } catch (const CompilerDevelopmentError &e) {
+        cerr << "CompilerDevelopment Exception occured: " << e.message << "\n";
     } catch (...) {
         cerr << "Unknown Exception occured\n";
     }
