@@ -85,6 +85,23 @@ TypeDeclaration resolveQualifiedIdentifier(QualifiedIdentifier *node, PackageDec
         }
     }
     
+    string package_prefix = node->getPackagePrefix(); // Get the package prefix
+    for (auto &ast: asts) {
+        if(holds_alternative<CompilationUnit>(ast)) {
+            auto &cu_variant = get<CompilationUnit>(ast);
+            if(cu_variant.package_declaration && cu_variant.package_declaration->getQualifiedName() == package_prefix) { // If the package name of the cu_variant is the same as the package prefix
+                if (cu_variant.class_declarations.size() > 0 && cu_variant.class_declarations[0].class_name->name == type_name) {
+                    // If we found a class in the package, get the package decl object from the root package, and return the class declaration object
+                    return cu_variant.class_declarations[0].environment;
+                }
+
+                if(cu_variant.interface_declarations.size() > 0 && cu_variant.interface_declarations[0].interface_name->name == type_name) {
+                    // If we found an interface  in the package, get the package decl object from the root package, and return the class declaration object
+                    return cu_variant.interface_declarations[0].environment;
+                }
+            }
+        }
+    }
     // if(classes.find(type_name) != classes.end()) {
     //     result = &classes[type_name]; // If the class is in the environment, set the result to the class
     // } else if(interfaces.find(type_name) != interfaces.end()) {
