@@ -37,8 +37,9 @@ public:
 
     std::string getPackagePrefix() {
         std::string result = "";
-        for (int i = 0; i < identifiers.size(); i++) {
-            result += identifiers[i].name + ".";
+        for (int i = 0; i < identifiers.size() - 1; i++) {
+            if (i == identifiers.size() - 2) result += identifiers[i].name;
+            else result += identifiers[i].name + ".";
         }
 
         return result;

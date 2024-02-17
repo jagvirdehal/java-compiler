@@ -10,7 +10,6 @@
 using namespace std;
 
 
-// This function gets the types in the package
 set<string> getPackageTypes(string package_name, vector<AstNodeVariant> &asts) {
     set<string> types;
 
@@ -166,8 +165,10 @@ TypeDeclaration checkCurrentPackage(vector<AstNodeVariant> &asts, string package
 
 TypeDeclaration checkSingleImports(vector<QualifiedIdentifier> single_type_import_declarations, vector<AstNodeVariant> &asts, string type_name) {
     for (auto &import: single_type_import_declarations) {
-        string import_prefix = import.getQualifiedName(); // get package prefix
+        string import_prefix = import.getPackagePrefix(); // get package prefix
         // java.lang.String -> package name = java.lang
+
+        cout << import_prefix << endl;
             
         for (const AstNodeVariant &ast: asts) {
             if(holds_alternative<CompilationUnit>(ast)) {
@@ -265,9 +266,12 @@ TypeDeclaration resolveIdentifier(Identifier *node, PackageDeclarationObject &en
     // On demand declarations
     // import java.lang.*
     // Check single type imports for current identifier
+
     result = checkSingleImports(single_type_import_declarations, asts, type_name); // check single imports
     if (!checkNullTypeDeclaration(result)) return result;
 
+    cout << "This should not be logged" << endl;
+    
     result = checkCurrentPackage(asts, package_name, type_name); // check current package
     if (!checkNullTypeDeclaration(result)) return result; 
 
@@ -279,12 +283,14 @@ TypeDeclaration resolveIdentifier(Identifier *node, PackageDeclarationObject &en
 
 
 void TypeLinker::operator()(CompilationUnit &node) {
-    // cout << "TypeLinker going through ast root right now ";
-    // if(node.package_declaration) {
-    //     cout << node.package_declaration.get()->getQualifiedName();
-    // }
+    cout << "TypeLinker going through ast root right now ";
+    if(node.package_declaration) {
+        cout << node.package_declaration.get()->getQualifiedName();
+    }
+    cout << endl;
 
-    // cout << endl;
+    if(node.class_declarations.size() > 0) cout << "class name: " << node.class_declarations[0].class_name->name << endl;
+    if(node.interface_declarations.size() > 0) cout << "interface name: " << node.interface_declarations[0].interface_name->name << endl;
 
     package_name = "";
     if(node.package_declaration.get() != nullptr) {
@@ -333,18 +339,19 @@ void TypeLinker::operator()(ClassInstanceCreationExpression &node) {
 
 void TypeLinker::operator()(Type &node) {
     
-    // cout << "Trying to resolve type now " << endl;
+    cout << "Trying to resolve type now " << endl;
     if(node.non_array_type == nullptr) {
         throw CompilerDevelopmentError("Non array type is null");
     } else if(holds_alternative<QualifiedIdentifier>(*node.non_array_type.get())) { // Check that the non_array_type is a QualifiedIdentifier
         QualifiedIdentifier id = get<QualifiedIdentifier>(*node.non_array_type.get()); 
         TypeDeclaration result = static_cast<ClassDeclarationObject*>(nullptr);
         if (id.identifiers.size() > 1) {
-            // std::cout << "resolving qualified" << std::endl;
+            std::cout << "resolving qualified" << std::endl;
             result = resolveQualifiedIdentifier(&id, root_env, package_name, asts); // Resolve the qualified identifier
         } else {
-            // std::cout << "resolving simple type" << std::endl;
             Identifier one_id = id.identifiers[0];
+            std::cout << "resolving simple type " << one_id.name <<  std::endl;
+        
             result = resolveIdentifier(&one_id, root_env, package_name, asts, ast_root); // Resolve the simple identifier
         }
 
@@ -409,17 +416,40 @@ void TypeLinker::operator()(FieldDeclaration &node) {
 void TypeLinker::operator()(MethodDeclaration &node) {
     // Resolve return type
     visit_children(node);
-    node.environment->return_type = node.type->node;
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for method");
+    }
+    if(node.type == nullptr) {
+        // this is constructor case
+        node.environment->return_type = static_cast<ClassDeclarationObject*>(nullptr);
+    } else {
+        node.environment->return_type = node.type->node;
+    }
 }
 
 void TypeLinker::operator()(FormalParameter &node) {
     // Resolve type
+    cout << "visiting formal param" << endl;
     visit_children(node);
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for formal param");
+    }
+    if(node.type == nullptr) {
+        throw CompilerDevelopmentError("node.type is null for formal param");
+    } else if(checkNullTypeDeclaration(node.type->node)) {
+        throw CompilerDevelopmentError("node.type->node is null for formal param");
+    }
     node.environment->type = node.type->node;
 }
 
 void TypeLinker::operator()(LocalVariableDeclaration &node) {
     // Resolve type
     visit_children(node);
+    if(node.environment == nullptr) {
+        throw CompilerDevelopmentError("node.environment is null for local var");
+    }
+    if(node.type == nullptr || checkNullTypeDeclaration(node.type->node)) {
+        throw CompilerDevelopmentError("node.type->node is null for local var");
+    }
     node.environment->type = node.type->node;
 }

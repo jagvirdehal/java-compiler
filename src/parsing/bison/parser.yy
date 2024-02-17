@@ -859,8 +859,8 @@ MethodDeclaration: // One of these must be constructor
 MethodHeader:
     Type MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, EMPTY_VECTOR(Modifier), move($1), move($2.first), move($2.second), EMPTY); }
     | Modifiers Type MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, move($1), move($2), move($3.first), move($3.second), EMPTY); }
-    | VOID MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, EMPTY_VECTOR(Modifier), NEW_TYPE($1, false), move($2.first), move($2.second), EMPTY); }
-    | Modifiers VOID MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, move($1), NEW_TYPE($2, false), move($3.first), move($3.second), EMPTY); }
+    | VOID MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, EMPTY_VECTOR(Modifier), move(NEW_TYPE($1, false)), move($2.first), move($2.second), EMPTY); }
+    | Modifiers VOID MethodDeclarator { MAKE_OBJ($$, MethodDeclaration, move($1), move(NEW_TYPE($2, false)), move($3.first), move($3.second), EMPTY); }
     | Modifiers MethodDeclarator // Represents constructor, todo weeding: reject if identifier is not class name
         { MAKE_OBJ($$, MethodDeclaration, move($1), EMPTY, move($2.first), move($2.second), EMPTY); }
     ;
