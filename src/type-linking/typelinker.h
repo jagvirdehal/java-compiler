@@ -18,6 +18,7 @@ class TypeLinker : public DefaultSkipVisitor<void> {
     vector<AstNodeVariant>& asts;
     vector<QualifiedIdentifier> type_import_on_demand_declarations;
     string package_name;
+    QualifiedIdentifier* package_name_id;
 
 public:
     using DefaultSkipVisitor<void>::operator();

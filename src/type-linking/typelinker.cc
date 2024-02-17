@@ -327,6 +327,7 @@ TypeLinker::TypeLinker(
     package_name = "";
     if (ast_root.package_declaration.get() != nullptr) {
         package_name = ast_root.package_declaration.get()->getQualifiedName();
+        package_name_id = ast_root.package_declaration.get();
     }
 };
 
