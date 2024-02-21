@@ -65,9 +65,7 @@ INTEGRATION_TEST:
       - build
 
 SUBMISSION:
-  stage: build
-  dependencies:
-    - PROJECT_BUILD
+  stage: .post
   script: make submission anum=3
   artifacts:
     paths:
@@ -77,3 +75,5 @@ SUBMISSION:
     policy: pull
     paths:
       - build
+  rules:
+    - when: always
