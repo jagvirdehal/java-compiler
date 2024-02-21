@@ -65,7 +65,9 @@ INTEGRATION_TEST:
       - build
 
 SUBMISSION:
-  stage: .post
+  stage: build
+  dependencies:
+    - PROJECT_BUILD
   script: make submission anum=3
   artifacts:
     paths:
