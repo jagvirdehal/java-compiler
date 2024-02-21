@@ -16,7 +16,7 @@ before_script:
 
 image:
   name: gcc
-  pull_policy: if-not-present
+  pull_policy: [always, if-not-present]
 
 PROJECT_BUILD:
   stage: build
