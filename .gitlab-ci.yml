@@ -14,7 +14,9 @@
 before_script:
   - apt-get update -qq && apt-get install -y -qq python3 python3-pip ninja-build gcc flex bison valgrind time git zip cmake
 
-image: gcc
+image:
+  name: gcc
+  pull_policy: if-not-present
 
 PROJECT_BUILD:
   stage: build
@@ -66,6 +68,8 @@ INTEGRATION_TEST:
 
 SUBMISSION:
   stage: .post
+  needs:
+    - PROJECT_BUILD
   script: make submission anum=3
   artifacts:
     paths:
@@ -75,5 +79,3 @@ SUBMISSION:
     policy: pull
     paths:
       - build
-  rules:
-    - when: always
