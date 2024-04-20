@@ -91,6 +91,10 @@ class AssemblyGenerator {
                     for (auto& [field_name, field_initalizer] : cu.getCanonFieldList()) {
                         assert(field_initalizer);
                         auto tile = converter.tile(*field_initalizer);
+                        tile->assignAbstract(Assembly::REG32_ACCUM);
+                        USED_REG_ALLOCATOR registerAllocator;
+                        registerAllocator.allocateRegisters(tile);
+                        registerAllocator.print_live_intervals();
                         static_fields.emplace_back(field_name, *tile);
                     }
 
