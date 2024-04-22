@@ -121,6 +121,14 @@ struct ClassInstanceCreationExpression: public ExpressionCommon {
         std::unique_ptr<QualifiedIdentifier>&& class_name,
         std::vector<Expression>&& arguments
     );
+
+    // The constructor that is called.
+    // Resolved during typechecking; null beforehand.
+    MethodDeclarationObject* called_constructor = nullptr;
+
+    // The class that is constructed.
+    // Resolved during typechecking; null beforehand.
+    ClassDeclarationObject* constructed_class = nullptr;
 };
 
 struct FieldAccess: public ExpressionCommon {
