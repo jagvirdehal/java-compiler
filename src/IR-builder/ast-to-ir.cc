@@ -1207,31 +1207,7 @@ void IRBuilderVisitor::operator()(FieldDeclaration &field) {
 }
 
 void IRBuilderVisitor::operator()(MethodDeclaration &node) {
-    // Instance method
-    if (!node.hasModifier(Modifier::STATIC) || !node.environment->return_type.isPrimitive()) {
-        // Skip non-static methods
-        // If non-primitive return type or non-static method, add an empty function
-
-        auto label = CGConstants::uniqueMethodLabel(node.environment);
-
-        // Create func_decl
-        auto func_decl = make_unique<FuncDeclIR>(
-            label,
-            SeqIR::makeEmpty(),
-            (int) node.parameters.size()
-        );
-
-        // Add func_decl to comp_unit
-        comp_unit.appendFunc(label, std::move(func_decl));
-        return;
-    }
-
-    if (node.environment->is_constructor) {
-        // Constructors are an Object-Oriented feature that will be handled in A6
-        return; 
-    }
-
-    // Static method
+    // All methods should be handled the same in terms of IR
     if (node.body) {
         // CREATE FuncDecl
 
@@ -1240,20 +1216,27 @@ void IRBuilderVisitor::operator()(MethodDeclaration &node) {
         std::visit(util::overload{
             [&](SeqIR &seq) {
                 vector<unique_ptr<StatementIR>> load_args;
-
-                // Move each value in abstract argument register from caller into parameter temnp
                 int arg_num = 0;
+
+                // Load `this` arg
+                auto abstract_arg_name = CGConstants::ABSTRACT_ARG_PREFIX + to_string(arg_num++);
+
+                load_args.push_back(
+                    MoveIR::makeStmt(
+                        TempIR::makeExpr("this"),
+                        TempIR::makeExpr(abstract_arg_name)
+                    )
+                );
+
+                // Move each value in abstract argument register from caller into parameter temp
                 for ( auto &param : node.parameters ) {
                     auto param_name = CGConstants::uniqueParameterLabel(param.environment);
-                    auto param_temp = TempIR::makeExpr(param_name);
-
                     auto abstract_arg_name = CGConstants::ABSTRACT_ARG_PREFIX + to_string(arg_num++);
-                    auto arg_temp = TempIR::makeExpr(abstract_arg_name);
 
                     load_args.push_back(
                         MoveIR::makeStmt(
-                            std::move(param_temp),
-                            std::move(arg_temp)
+                            TempIR::makeExpr(param_name),
+                            TempIR::makeExpr(abstract_arg_name)
                         )
                     );
                 }
