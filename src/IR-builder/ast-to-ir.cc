@@ -519,10 +519,21 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
     }
 
     // Instance field access
-    if (expr.identifier->field) {
-        #warning TODO: (A6) access the correct field of the correct object, will require typechecking changes probably
-        auto name = CGConstants::uniqueFieldLabel(expr.identifier->field); // Incorrect because we don't have this info yet
-        return TempIR::makeExpr(name);
+    if (auto field_obj = expr.identifier->field) {
+        int field_offset = 0;
+        #warning TODO add the offset from the class being referred to
+
+        return MemIR::makeExpr(
+            BinOpIR::makeExpr(
+                BinOpIR::ADD,
+                convert(*expr.expression),
+                BinOpIR::makeExpr(
+                    BinOpIR::MUL,
+                    ConstIR::makeExpr(field_offset),
+                    ConstIR::makeWords()
+                )
+            )
+        );
     }
 
     THROW_CompilerError("Identifier '" + expr.identifier->name + "' not linked to a field");
