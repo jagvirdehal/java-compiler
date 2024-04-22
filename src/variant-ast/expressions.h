@@ -143,6 +143,10 @@ struct FieldAccess: public ExpressionCommon {
         std::unique_ptr<Expression>&& expression,
         std::unique_ptr<Identifier>&& identifier
     );
+
+    // The type that the field access is on.
+    // Resolved during typechecking; null beforehand.
+    LinkedType type_accessed_on = nullptr;
 };
 
 struct ArrayAccess: public ExpressionCommon {
