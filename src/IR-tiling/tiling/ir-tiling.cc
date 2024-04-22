@@ -1,9 +1,11 @@
 #include "ir-tiling.h"
 #include "utillities/util.h"
 #include "exceptions/exceptions.h"
-#include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/register-allocation/register-allocator.h"
 #include "IR/code-gen-constants.h"
+
+#include "IR-tiling/assembly/assembly-instruction.h"
+#include "IR-tiling/assembly/registers.h"
 
 #include <regex>
 
@@ -46,106 +48,106 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
             switch (node.op) {
                 case BinOpIR::OpType::ADD: {
                     generic_tile.add_instructions_after({
-                        Assembly::Lea(Tile::ABSTRACT_REG, Assembly::MakeAddress(operand1_reg, operand2_reg))
+                        AssemblyRefactor::Lea(Tile::ABSTRACT_REG, EffectiveAddress(operand1_reg, operand2_reg))
                     });
                     break;
                 } 
                 case BinOpIR::OpType::SUB: {
                     generic_tile.add_instructions_after({
-                        Assembly::Sub(operand1_reg, operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, operand1_reg)
+                        AssemblyRefactor::Sub(operand1_reg, operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, operand1_reg)
                     });
                     break;
                 }
                 case BinOpIR::OpType::MUL: {
                     generic_tile.add_instructions_after({
-                        Assembly::Mov(Assembly::REG32_ACCUM, operand1_reg),
-                        Assembly::IMul(operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, Assembly::REG32_ACCUM)
+                        AssemblyRefactor::Mov(AssemblyRefactor::REG32_ACCUM, operand1_reg),
+                        AssemblyRefactor::IMul(operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, AssemblyRefactor::REG32_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::DIV: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand2_reg, "0"), // Check for division by zero
-                        Assembly::Je("__exception"), // Jump to exception handler if division by zero
-                        Assembly::Mov(Assembly::REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
-                        Assembly::Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
-                        Assembly::IDiv(operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, Assembly::REG32_ACCUM) // Quotient stored in ACCUM
+                        AssemblyRefactor::Cmp(operand2_reg, "0"), // Check for division by zero
+                        AssemblyRefactor::Je("__exception"), // Jump to exception handler if division by zero
+                        AssemblyRefactor::Mov(AssemblyRefactor::REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
+                        AssemblyRefactor::Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
+                        AssemblyRefactor::IDiv(operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, AssemblyRefactor::REG32_ACCUM) // Quotient stored in ACCUM
                     });
                     break;
                 }
                 case BinOpIR::OpType::MOD: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand2_reg, "0"), // Check for division by zero
-                        Assembly::Je("__exception"), // Jump to exception handler if division by zero
-                        Assembly::Mov(Assembly::REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
-                        Assembly::Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
-                        Assembly::IDiv(operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, Assembly::REG32_DATA) // Remainder stored in DATA
+                        AssemblyRefactor::Cmp(operand2_reg, "0"), // Check for division by zero
+                        AssemblyRefactor::Je("__exception"), // Jump to exception handler if division by zero
+                        AssemblyRefactor::Mov(AssemblyRefactor::REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
+                        AssemblyRefactor::Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
+                        AssemblyRefactor::IDiv(operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, AssemblyRefactor::REG32_DATA) // Remainder stored in DATA
                     });
                     break;
                 }
                 case BinOpIR::OpType::AND: {
                     generic_tile.add_instructions_after({
-                        Assembly::And(operand1_reg, operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, operand1_reg)
+                        AssemblyRefactor::And(operand1_reg, operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, operand1_reg)
                     });
                     break;
                 }
                 case BinOpIR::OpType::OR: {
                     generic_tile.add_instructions_after({
-                        Assembly::Or(operand1_reg, operand2_reg),
-                        Assembly::Mov(Tile::ABSTRACT_REG, operand1_reg)
+                        AssemblyRefactor::Or(operand1_reg, operand2_reg),
+                        AssemblyRefactor::Mov(Tile::ABSTRACT_REG, operand1_reg)
                     });
                     break;
                 }
                 case BinOpIR::OpType::EQ: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetZ(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetZ(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::NEQ: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetNZ(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetNZ(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::LT: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetL(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetL(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::GT: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetG(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetG(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::LEQ: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetLE(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetLE(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
                 case BinOpIR::OpType::GEQ: {
                     generic_tile.add_instructions_after({
-                        Assembly::Cmp(operand1_reg, operand2_reg),
-                        Assembly::SetGE(Assembly::REG8L_ACCUM),
-                        Assembly::MovZX(Tile::ABSTRACT_REG, Assembly::REG8L_ACCUM)
+                        AssemblyRefactor::Cmp(operand1_reg, operand2_reg),
+                        AssemblyRefactor::SetGE(AssemblyRefactor::REG8L_ACCUM),
+                        AssemblyRefactor::MovZX(Tile::ABSTRACT_REG, AssemblyRefactor::REG8L_ACCUM)
                     });
                     break;
                 }
@@ -158,7 +160,7 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
         [&](ConstIR &node) {
             // 32-bit immediate
             generic_tile = Tile({
-                Assembly::Mov(Tile::ABSTRACT_REG, node.getValue())
+                AssemblyRefactor::Mov(Tile::ABSTRACT_REG, node.getValue())
             });
         },
 
@@ -166,14 +168,19 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
             std::string address_reg = newAbstractRegister();
 
             generic_tile = Tile({
+<<<<<<< HEAD
                 tile(address_reg, node.getAddress()),
                 Assembly::Mov(Tile::ABSTRACT_REG, Assembly::MakeAddress(address_reg))
+=======
+                tile(node.getAddress(), address_reg),
+                AssemblyRefactor::Lea(Tile::ABSTRACT_REG, EffectiveAddress(address_reg))
+>>>>>>> progress
             });
         },
 
         [&](NameIR &node) {
             generic_tile = Tile({
-                Assembly::Mov(Tile::ABSTRACT_REG, node.getName())
+                AssemblyRefactor::Mov(Tile::ABSTRACT_REG, node.getName())
             });
         },
 
@@ -181,7 +188,7 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
             // Special registers : ABSTRACT_RET is REG32_ACCUM
             if (node.getName() == CGConstants::ABSTRACT_RET) {
                 generic_tile = Tile({
-                    Assembly::Mov(Tile::ABSTRACT_REG, Assembly::REG32_ACCUM)
+                    AssemblyRefactor::Mov(Tile::ABSTRACT_REG, AssemblyRefactor::REG32_ACCUM)
                 });
             }
             // Special registers : ABSTRACT_ARG_PREFIX# is stack offset from caller
@@ -190,25 +197,25 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
                     = std::stoi(std::regex_replace(node.getName(), std::regex(CGConstants::ABSTRACT_ARG_PREFIX), ""));
 
                 generic_tile = Tile({
-                    Assembly::Mov(
+                    AssemblyRefactor::Mov(
                         Tile::ABSTRACT_REG, 
-                        Assembly::MakeAddress(Assembly::REG32_STACKBASEPTR, "", 1, 4 * (arg_num + 2))
+                        EffectiveAddress(AssemblyRefactor::REG32_STACKBASEPTR, 4 * (arg_num + 2))
                     )
                 });
             } 
             // Special temp : Static variable in .data section
             else if (node.isGlobal) {
                 generic_tile = Tile({
-                    Assembly::Mov(
+                    AssemblyRefactor::Mov(
                         Tile::ABSTRACT_REG,
-                        Assembly::MakeAddress(node.getName())
+                        EffectiveAddress(node.getName())
                     )
                 });
             }
             // Not special
             else {
                 generic_tile = Tile({
-                    Assembly::Mov(Tile::ABSTRACT_REG, escapeTemporary(node.getName()))
+                    AssemblyRefactor::Mov(Tile::ABSTRACT_REG, escapeTemporary(node.getName()))
                 });
             }
         },
@@ -243,9 +250,15 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             std::string cond_reg = newAbstractRegister();
 
             generic_tile = Tile({
+<<<<<<< HEAD
                 tile(cond_reg, node.getCondition()),
                 Assembly::Test(cond_reg, cond_reg),
                 Assembly::JumpIfNZ(node.trueLabel())
+=======
+                tile(node.getCondition(), cond_reg),
+                AssemblyRefactor::Test(cond_reg, cond_reg),
+                AssemblyRefactor::JumpIfNZ(node.trueLabel())
+>>>>>>> progress
             });
         },
 
@@ -257,15 +270,22 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             } else {
                 std::string target_reg = newAbstractRegister();
 
+<<<<<<< HEAD
                 generic_tile = Tile({
                     tile(target_reg, node.getTarget()),
                     Assembly::Jump(target_reg)
                 });
             }
+=======
+            generic_tile = Tile({
+                tile(node.getTarget(), target_reg),
+                AssemblyRefactor::Jump(target_reg)
+            });
+>>>>>>> progress
         },
 
         [&](LabelIR &node) {
-            generic_tile = Tile({Assembly::Label(node.getName())});
+            generic_tile = Tile({AssemblyRefactor::Label(node.getName())});
         },
 
         [&](MoveIR &node) {
@@ -278,8 +298,13 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                         std::string temp_value_reg = newAbstractRegister();
 
                         generic_tile = Tile({
+<<<<<<< HEAD
                             tile(temp_value_reg, node.getSource()),
                             Assembly::Mov(Assembly::MakeAddress(target.getName()), temp_value_reg)
+=======
+                            tile(node.getSource(), temp_value_reg),
+                            AssemblyRefactor::Mov(EffectiveAddress(target.getName()), temp_value_reg)
+>>>>>>> progress
                         });
                     } else {
                         generic_tile = Tile({
@@ -293,9 +318,15 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                     std::string source_reg = newAbstractRegister();
 
                     generic_tile = Tile({
+<<<<<<< HEAD
                         tile(source_reg, node.getSource()),
                         tile(address_reg, target.getAddress()),
                         Assembly::Mov(Assembly::MakeAddress(address_reg), source_reg)
+=======
+                        tile(node.getSource(), source_reg),
+                        tile(target.getAddress(), address_reg),
+                        AssemblyRefactor::Mov(EffectiveAddress(address_reg), source_reg)
+>>>>>>> progress
                     });
                 },
 
@@ -308,15 +339,20 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             if (node.getRet()) {
                 // Return a value by placing it in REG32_ACCUM
                 generic_tile.add_instructions_after({
+<<<<<<< HEAD
                     tile(Assembly::REG32_ACCUM, *node.getRet())
+=======
+                    AssemblyRefactor::Comment("return a value by placing it in REG32_ACCUM"),
+                    tile(*node.getRet(), AssemblyRefactor::REG32_ACCUM)
+>>>>>>> progress
                 });
             }
             // Function epilogue
             generic_tile.add_instructions_after({
-                Assembly::Comment("function epilogue"),
-                Assembly::Mov(Assembly::REG32_STACKPTR, Assembly::REG32_STACKBASEPTR),
-                Assembly::Pop(Assembly::REG32_STACKBASEPTR),
-                Assembly::Ret()
+                AssemblyRefactor::Comment("function epilogue"),
+                AssemblyRefactor::Mov(AssemblyRefactor::REG32_STACKPTR, AssemblyRefactor::REG32_STACKBASEPTR),
+                AssemblyRefactor::Pop(AssemblyRefactor::REG32_STACKBASEPTR),
+                AssemblyRefactor::Ret()
             });
         },
 
@@ -347,19 +383,33 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             // Push arguments onto stack, in reverse order (CDECL)
             for (auto &arg : node.getArgs()) {
                 std::string argument_register = newAbstractRegister();
+<<<<<<< HEAD
                 generic_tile.add_instructions_before({
                     tile(argument_register, *arg),
                     Assembly::Push(argument_register)
+=======
+                generic_tile.add_instructions_after({
+                    tile(*arg, argument_register),
+                    AssemblyRefactor::Push(argument_register)
+>>>>>>> progress
                 });
             }
-            generic_tile.add_instructions_before({Assembly::Comment("Call: pushing arguments onto stack")});
+            generic_tile.add_instructions_before({AssemblyRefactor::Comment("Call: pushing arguments onto stack")});
 
             // Perform call instruction on function label
+<<<<<<< HEAD
             generic_tile.add_instruction(Assembly::Call(called_function));
+=======
+            if (auto name = std::get_if<NameIR>(&node.getTarget())) {
+                generic_tile.add_instruction(AssemblyRefactor::Call(name->getName()));
+            } else {
+                THROW_CompilerError("Function call target is not a label"); 
+            }
+>>>>>>> progress
 
             // Pop arguments from stack
-            generic_tile.add_instruction(Assembly::Comment("Call: popping arguments off stack"));
-            generic_tile.add_instruction(Assembly::Add(Assembly::REG32_STACKPTR, 4 * node.getNumArgs()));
+            generic_tile.add_instruction(AssemblyRefactor::Comment("Call: popping arguments off stack"));
+            generic_tile.add_instruction(AssemblyRefactor::Add(AssemblyRefactor::REG32_STACKPTR, 4 * node.getNumArgs()));
         },
 
         [&](SeqIR &node) {

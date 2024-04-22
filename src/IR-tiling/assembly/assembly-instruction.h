@@ -1,41 +1,44 @@
 #pragma once
 
 #include "assembly-refactor.h"
+#include <variant>
 
 // AssemblyInstruction variant, to treat instructions polymorphically without needing pointers
 
 using AssemblyInstructionInheritedVariant = std::variant<
-    Mov,
-    Jump,
-    Je,
-    JumpIfNZ,
-    Lea,
-    Add,
-    Sub,
-    Xor,
-    And,
-    Or,
-    MovZX,
-    Cmp,
-    Test,
-    Push,
-    Pop,
-    Cdq,
-    Ret,
-    Call,
-    SysCall,
-    SetZ,
-    SetNZ,
-    SetL,
-    SetG,
-    SetLE,
-    SetGE,
-    IMul,
-    IDiv
+    AssemblyRefactor::Mov,
+    AssemblyRefactor::Jump,
+    AssemblyRefactor::Je,
+    AssemblyRefactor::JumpIfNZ,
+    AssemblyRefactor::Lea,
+    AssemblyRefactor::Add,
+    AssemblyRefactor::Sub,
+    AssemblyRefactor::Xor,
+    AssemblyRefactor::And,
+    AssemblyRefactor::Or,
+    AssemblyRefactor::MovZX,
+    AssemblyRefactor::Cmp,
+    AssemblyRefactor::Test,
+    AssemblyRefactor::Push,
+    AssemblyRefactor::Pop,
+    AssemblyRefactor::Cdq,
+    AssemblyRefactor::Ret,
+    AssemblyRefactor::Call,
+    AssemblyRefactor::SysCall,
+    AssemblyRefactor::SetZ,
+    AssemblyRefactor::SetNZ,
+    AssemblyRefactor::SetL,
+    AssemblyRefactor::SetG,
+    AssemblyRefactor::SetLE,
+    AssemblyRefactor::SetGE,
+    AssemblyRefactor::IMul,
+    AssemblyRefactor::IDiv,
+    AssemblyRefactor::Comment
 >;
 
 struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
-    using variant::variant;
+    using AssemblyInstructionInheritedVariant::AssemblyInstructionInheritedVariant;
+    using AssemblyInstructionInheritedVariant::operator=;
 
     std::unordered_set<std::string*>& getUsedRegisters() {
         return std::visit(util::overload {

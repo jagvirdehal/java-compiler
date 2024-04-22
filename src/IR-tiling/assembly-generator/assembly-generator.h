@@ -94,7 +94,6 @@ class AssemblyGenerator {
                         tile->assignAbstract(Assembly::REG32_ACCUM);
                         USED_REG_ALLOCATOR registerAllocator;
                         registerAllocator.allocateRegisters(tile);
-                        registerAllocator.print_live_intervals();
                         static_fields.emplace_back(field_name, *tile);
                     }
 

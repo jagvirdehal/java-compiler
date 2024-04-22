@@ -6,9 +6,9 @@
 #include <variant>
 #include <utility>
 
-class Tile;
+#include "IR-tiling/assembly/assembly-instruction.h"
 
-using AssemblyInstruction = std::string;
+class Tile;
 
 using StatementTile = Tile*;
 using ExpressionTile = std::pair<Tile*, std::string>;

@@ -8,7 +8,7 @@
 // Each added instruction should be added to the variant in assembly-instruction.h.
 // Each added instruction should implement toString(), and define which operands are read/written to (can be both)
 
-namespace Assembly {
+namespace AssemblyRefactor {
 
 /* Assorted instructions */
 
@@ -235,6 +235,12 @@ struct Call : public NoOperandInstruction {
 struct SysCall : public NoOperandInstruction {
     SysCall() 
         : NoOperandInstruction{"int 0x80"} 
+    {}
+};
+
+struct Comment : public NoOperandInstruction {
+    Comment(std::string text) 
+        : NoOperandInstruction{"; " + text} 
     {}
 };
 

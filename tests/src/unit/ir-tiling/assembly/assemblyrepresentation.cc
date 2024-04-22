@@ -6,6 +6,8 @@
 // Test that the assembly representation works
 
 TEST(Mov, StringifiesCorrectly) {
+    using namespace AssemblyRefactor;
+
     Operand a = "a";
     AssemblyInstruction move_basic = Mov("a", "b");
 
