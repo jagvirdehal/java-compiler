@@ -373,11 +373,19 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
             MemIR::makeExpr(TempIR::makeExpr(obj_ref)),
             // LOCATION OF DISPATCH VECTOR
             ConstIR::makeExpr(1239012930)  // TODO: how do we do this?
+            #warning TODO: add a DV location here
         )
     );
 
-    // Zero-initialize all fields
+    // Initialize all fields
     for ( int i = 0; i < num_fields; i++ ) {
+        unique_ptr<ExpressionIR> init_expr;
+        if ( auto &field_expr = class_dv.field_vector[i]->ast_reference->variable_declarator->expression ) {
+            init_expr = convert(*field_expr);
+        } else {
+            init_expr = ConstIR::makeZero();
+        }
+
         seq_vec.push_back(
             MoveIR::makeStmt(
                 MemIR::makeExpr(BinOpIR::makeExpr(
@@ -385,7 +393,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
                     TempIR::makeExpr(obj_ref),
                     ConstIR::makeWords(i + 1)
                 )),
-                ConstIR::makeZero()
+                std::move(init_expr)
             )
         );
     }
@@ -1192,6 +1200,7 @@ void IRBuilderVisitor::operator()(FieldDeclaration &field) {
             try {
                 comp_unit.appendField(name, convert(*field.variable_declarator->expression));
             } catch (...) {
+                #warning REMOVE THIS
                 // TODO: remove
                 // Skip if unable to convert initializer
             }
