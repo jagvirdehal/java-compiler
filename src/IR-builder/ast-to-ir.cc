@@ -934,10 +934,20 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 
     // Instance field access
     if (auto field = expr.getIfRefersToField()) {
-        #warning TODO: (A6) access the correct field of the correct object
+        DV class_dv = DVBuilder::getDV(current_class);
+        int field_offset = class_dv.getFieldOffset(field);
 
-        auto name = CGConstants::uniqueFieldLabel(field);
-        return TempIR::makeExpr(name);
+        return MemIR::makeExpr(
+            BinOpIR::makeExpr(
+                BinOpIR::ADD,
+                TempIR::makeExpr("this"),
+                BinOpIR::makeExpr(
+                    BinOpIR::MUL,
+                    ConstIR::makeExpr(field_offset),
+                    ConstIR::makeWords()
+                )
+            )
+        );
     }
 
     THROW_CompilerError(
@@ -1231,7 +1241,9 @@ void IRBuilderVisitor::operator()(ClassDeclaration &node) {
     comp_unit = {node.environment->identifier};
 
     // Add methods and fields
+    current_class = node.environment;
     this->visit_children(node);
+    current_class = nullptr;
 }
 
 void IRBuilderVisitor::operator()(FieldDeclaration &field) {
