@@ -545,12 +545,28 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
         );
     } else {
         // Instance method invoked
-        #warning TODO OOP a6 feature not properly implemented yet
-
-        return CallIR::makeExpr(
-            NameIR::makeExpr(CGConstants::uniqueMethodLabel(expr.called_method)),
-            convert(*expr.parent_expr),
-            std::move(call_args_vec)
+        auto this_name = TempIR::generateName("this");
+        return ESeqIR::makeExpr(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(this_name),
+                convert(*expr.parent_expr)
+            ),
+            CallIR::makeExpr(
+                // *this + 4*offset
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    MemIR::makeExpr(
+                        TempIR::makeExpr(this_name)
+                    ),
+                    BinOpIR::makeExpr(
+                        BinOpIR::MUL,
+                        ConstIR::makeExpr(DVBuilder::getAssignment(expr.called_method)),
+                        ConstIR::makeWords()
+                    )
+                ),
+                TempIR::makeExpr(this_name),
+                std::move(call_args_vec)
+            )
         );
     }
 }
