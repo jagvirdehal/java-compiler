@@ -27,7 +27,8 @@ std::unique_ptr<ExpressionIR> CallIR::makeExpr(
     }
 
     // Add _this as the first arg
-    std::vector<std::unique_ptr<ExpressionIR>> passed_args = {std::move(_this)};
+    std::vector<std::unique_ptr<ExpressionIR>> passed_args;
+    passed_args.push_back(std::move(_this));
     for ( auto &arg : args ) {
         passed_args.push_back(std::move(arg));
     }
