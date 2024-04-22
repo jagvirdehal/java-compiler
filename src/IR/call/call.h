@@ -21,5 +21,9 @@ public:
 
     static std::unique_ptr<ExpressionIR> makeMalloc(std::unique_ptr<ExpressionIR> arg);
     static std::unique_ptr<ExpressionIR> makeException();
-    static std::unique_ptr<ExpressionIR> makeExpr(std::unique_ptr<ExpressionIR> target, std::vector<std::unique_ptr<ExpressionIR> > args);
+    static std::unique_ptr<ExpressionIR> makeExpr(
+        std::unique_ptr<ExpressionIR> target,
+        std::unique_ptr<ExpressionIR> _this,
+        std::vector<std::unique_ptr<ExpressionIR> > args
+    );
 };
