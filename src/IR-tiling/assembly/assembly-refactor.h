@@ -8,6 +8,8 @@
 // Each added instruction should be added to the variant in assembly-instruction.h.
 // Each added instruction should implement toString(), and define which operands are read/written to (can be both)
 
+namespace Assembly {
+
 /* Assorted instructions */
 
 struct Mov : public AssemblyCommon {
@@ -302,3 +304,5 @@ struct IDiv : public AssemblyCommon {
         return "idiv " + divisor.toString();
     }
 };
+
+}; // namespace Assembly
