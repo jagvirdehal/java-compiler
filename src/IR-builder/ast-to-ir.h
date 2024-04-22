@@ -1,11 +1,13 @@
 #pragma once
 
 #include "IR/comp-unit/comp-unit.h"
+#include "environment-builder/symboltableentry.h"
 #include "variant-ast/astnode.h"
 #include "variant-ast/astvisitor/defaultskipvisitor.h"
 
 class IRBuilderVisitor : public DefaultSkipVisitor<CompUnitIR> {
     CompUnitIR comp_unit;
+    ClassDeclarationObject* current_class;
 
     // Statement converters
     std::unique_ptr<StatementIR> convert(Statement &stmt);

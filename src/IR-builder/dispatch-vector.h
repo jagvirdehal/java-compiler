@@ -12,6 +12,7 @@ class DV {
 public:
     std::vector<MethodDeclarationObject*> dispatch_vector;
     std::vector<FieldDeclarationObject*> field_vector;
+    int getFieldOffset(FieldDeclarationObject * field);
     DV(ClassDeclarationObject* class_obj);
 };
 
