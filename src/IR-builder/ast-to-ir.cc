@@ -372,9 +372,8 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
     seq_vec.push_back(
         MoveIR::makeStmt(
             MemIR::makeExpr(TempIR::makeExpr(obj_ref)),
-            // LOCATION OF DISPATCH VECTOR
-            ConstIR::makeExpr(1239012930)  // TODO: how do we do this?
-            #warning TODO: add a DV location here
+            // Location of dispatch vector
+            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj), true)
         )
     );
 
