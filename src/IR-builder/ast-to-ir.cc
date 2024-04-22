@@ -696,57 +696,85 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression 
     assert(expr.type);
     assert(expr.expression);
 
+    auto array_obj = Util::root_package->getJavaUtilArrays();
+
     if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
+        vector<unique_ptr<StatementIR>> seq_vec;
         // Primitive type
 
         // Get inner expression
         auto size_name = TempIR::generateName("size");
-        auto size_get = MoveIR::makeStmt(
-            TempIR::makeExpr(size_name),
-            convert(*expr.expression)
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(size_name),
+                convert(*expr.expression)
+            )
         );
 
         // Check non-negative
         auto error_name = LabelIR::generateName("error");
         auto non_negative_name = LabelIR::generateName("nonneg");
-        auto non_negative_check = CJumpIR::makeStmt(
-            // t_e >= 0
-            BinOpIR::makeExpr(
-                BinOpIR::GEQ,
-                TempIR::makeExpr(size_name),
-                ConstIR::makeZero()
-            ),
-            non_negative_name,
-            error_name
+        seq_vec.push_back(
+            CJumpIR::makeStmt(
+                // t_e >= 0
+                BinOpIR::makeExpr(
+                    BinOpIR::GEQ,
+                    TempIR::makeExpr(size_name),
+                    ConstIR::makeZero()
+                ),
+                non_negative_name,
+                error_name
+            )
         );
 
         // Error call
-        auto error_label = LabelIR::makeStmt(error_name);
-        auto error_call = ExpIR::makeStmt(std::move(CallIR::makeException()));
+        seq_vec.push_back(LabelIR::makeStmt(error_name));
+        seq_vec.push_back(ExpIR::makeStmt(
+            CallIR::makeException()
+        ));
 
         // Allocate space
-        auto non_negative_label = LabelIR::makeStmt(non_negative_name);
         auto array_name = TempIR::generateName("array");
-        auto malloc = MoveIR::makeStmt(
-            TempIR::makeExpr(array_name),
-            CallIR::makeMalloc(
-                // 4*t_size + 8
-                BinOpIR::makeExpr(
-                    BinOpIR::ADD,
+        seq_vec.push_back(LabelIR::makeStmt(non_negative_name));
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(array_name),
+                CallIR::makeMalloc(
+                    // 4*t_size + 8
                     BinOpIR::makeExpr(
-                        BinOpIR::MUL,
-                        ConstIR::makeWords(),
-                        TempIR::makeExpr(size_name)
-                    ),
-                    ConstIR::makeWords(2)
+                        BinOpIR::ADD,
+                        BinOpIR::makeExpr(
+                            BinOpIR::MUL,
+                            ConstIR::makeWords(),
+                            TempIR::makeExpr(size_name)
+                        ),
+                        ConstIR::makeWords(2)
+                    )
                 )
             )
         );
 
         // Write size
-        auto write_size = MoveIR::makeStmt(
-            MemIR::makeExpr(TempIR::makeExpr(array_name)),
-            TempIR::makeExpr(size_name)
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(array_name)),
+                TempIR::makeExpr(size_name)
+            )
+        );
+
+        // Attach DV
+        seq_vec.push_back(
+            // MEM(arr + 4) = DV for arrays
+            MoveIR::makeStmt(
+                MemIR::makeExpr(
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(array_name),
+                        ConstIR::makeWords()
+                    )
+                ),
+                TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
+            )
         );
 
         // Zero initialize array (loop)
@@ -754,15 +782,6 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression 
         auto start_loop = LabelIR::generateName("start_loop");
         auto exit_loop = LabelIR::generateName("exit_loop");
         auto dummy_name = LabelIR::generateName("dummy");
-        vector<unique_ptr<StatementIR>> seq_vec;
-
-        seq_vec.push_back(std::move(size_get));
-        seq_vec.push_back(std::move(non_negative_check));
-        seq_vec.push_back(std::move(error_label));
-        seq_vec.push_back(std::move(error_call));
-        seq_vec.push_back(std::move(non_negative_label));
-        seq_vec.push_back(std::move(malloc));
-        seq_vec.push_back(std::move(write_size));
 
         seq_vec.push_back(
             // Move(t_i, 0)
