@@ -19,6 +19,9 @@ class CGConstants {
     static size_t next_parameter_id;
     static std::unordered_map<FormalParameterDeclarationObject*, std::string> parameter_labels;
 
+    static inline size_t next_class_id;
+    static inline std::unordered_map<ClassDeclarationObject*, std::string> class_labels;
+
     // Unified way of generating unique labels for objects
     template <typename declObj>
     static std::string generateUniqueLabel(
@@ -65,6 +68,10 @@ class CGConstants {
     static std::string uniqueParameterLabel(FormalParameterDeclarationObject* parameter) {
         return generateUniqueLabel(parameter, parameter->identifier, "_PARAMETER", next_parameter_id, parameter_labels);
     };
+
+    static std::string uniqueClassLabel(ClassDeclarationObject* class_obj) {
+        return generateUniqueLabel(class_obj, class_obj->identifier, "_CLASS", next_class_id, class_labels);
+    }
 
     // The prefix for abstract argument registers
     // Abstract argument registers are _ARG0, _ARG1, etc.
