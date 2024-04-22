@@ -351,7 +351,8 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
     assert(expr.class_name);
 
     std::string class_name = expr.class_name->getFullUnderlyingQualifiedName();
-    auto class_obj = Util::root_package->findClassDeclaration(class_name);
+    auto class_obj = expr.constructed_class;
+    auto constructor_obj = expr.called_constructor;
 
     DV class_dv = DVBuilder::getDV(class_obj);
     int num_fields = class_dv.field_vector.size();
@@ -425,8 +426,25 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
         }
     );
 
+    // Call super constructors
     construct(class_obj);
-    #warning TODO: call the appropriate constructor for this expr
+    
+    // Create arg vector
+    vector<unique_ptr<ExpressionIR>> arg_vec;
+    for ( auto &arg : expr.arguments ) {
+        arg_vec.push_back(convert(arg));
+    }
+    
+    // Call constructor
+    seq_vec.push_back(
+        ExpIR::makeStmt(
+            CallIR::makeExpr(
+                NameIR::makeExpr(CGConstants::uniqueMethodLabel(constructor_obj)),
+                TempIR::makeExpr(obj_ref),
+                std::move(arg_vec)
+            )
+        )
+    );
 
     return ESeqIR::makeExpr(
         SeqIR::makeStmt(std::move(seq_vec)), 
