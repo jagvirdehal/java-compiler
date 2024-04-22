@@ -44,6 +44,8 @@ struct PackageDeclarationObject {
 
     // Helpers
     ClassDeclarationObject* getJavaLangObject();
+    ClassDeclarationObject* getJavaLangString();
+    ClassDeclarationObject* getJavaUtilArrays();
     PackageDeclarationObject* findPackageDeclaration(std::vector<Identifier> &identifiers);
     ClassDeclarationObject* findClassDeclaration(std::vector<Identifier> &identifiers);
     InterfaceDeclarationObject* findInterfaceDeclaration(std::vector<Identifier> &identifiers);

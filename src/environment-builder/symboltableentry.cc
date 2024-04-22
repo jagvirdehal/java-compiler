@@ -167,6 +167,38 @@ ClassDeclarationObject* PackageDeclarationObject::getJavaLangObject() {
     return object_class;
 }
 
+ClassDeclarationObject* PackageDeclarationObject::getJavaLangString() {
+    ClassDeclarationObject* object_class = nullptr;
+    try {
+        auto java_package_variant = sub_packages->lookupUniqueSymbol("java");
+        auto& java_package = std::get<PackageDeclarationObject>(*java_package_variant);
+        auto lang_package_variant = java_package.sub_packages->lookupUniqueSymbol("lang");
+        auto& lang_package = std::get<PackageDeclarationObject>(*lang_package_variant);
+        auto object_class_variant = lang_package.classes->lookupUniqueSymbol("String");
+        object_class = &std::get<ClassDeclarationObject>(*object_class_variant);
+    } catch (...) {
+        // Error getting java.lang.Object
+        THROW_TypeLinkerError("java.lang.String not found");
+    }
+    return object_class;
+}
+
+ClassDeclarationObject* PackageDeclarationObject::getJavaUtilArrays() {
+    ClassDeclarationObject* object_class = nullptr;
+    try {
+        auto java_package_variant = sub_packages->lookupUniqueSymbol("java");
+        auto& java_package = std::get<PackageDeclarationObject>(*java_package_variant);
+        auto lang_package_variant = java_package.sub_packages->lookupUniqueSymbol("util");
+        auto& lang_package = std::get<PackageDeclarationObject>(*lang_package_variant);
+        auto object_class_variant = lang_package.classes->lookupUniqueSymbol("Arrays");
+        object_class = &std::get<ClassDeclarationObject>(*object_class_variant);
+    } catch (...) {
+        // Error getting java.lang.Object
+        THROW_TypeLinkerError("java.util.Arrays not found");
+    }
+    return object_class;
+}
+
 bool isSubType(TypeDeclaration sub, TypeDeclaration super) {
     if (sub == super) { return true; }
     return std::visit(util::overload { 
