@@ -4,6 +4,7 @@
 #include "utillities/overload.h"
 #include "utillities/util.h"
 #include "variant-ast/expressions.h"
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -11,6 +12,7 @@
 #include "exceptions/exceptions.h"
 #include "IR-interpreter/simulation/simulation.h"
 #include "IR/code-gen-constants.h"
+#include "dispatch-vector.h"
 using namespace std;
 
 /***************************************************************
@@ -348,8 +350,80 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExpression &expr) {
     assert(expr.class_name);
 
-    // Call the appropriate constructor of the class
-    THROW_ASTtoIRError("TODO: Deferred to A6 - feature of OOP");
+    std::string class_name = expr.class_name->getFullUnderlyingQualifiedName();
+    auto class_obj = Util::root_package->findClassDeclaration(class_name);
+
+    DV class_dv = DVBuilder::getDV(class_obj);
+    int num_fields = class_dv.field_vector.size();
+
+    vector<unique_ptr<StatementIR>> seq_vec;
+    std::string obj_ref = TempIR::generateName("obj_ref");
+
+    // Allocate space for class
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            TempIR::makeExpr(obj_ref),
+            CallIR::makeMalloc(ConstIR::makeExpr(4 * (num_fields + 1)))
+        )
+    );
+
+    // Write dispatch vector to first loc
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            MemIR::makeExpr(TempIR::makeExpr(obj_ref)),
+            // LOCATION OF DISPATCH VECTOR
+            ConstIR::makeExpr(1239012930)  // TODO: how do we do this?
+        )
+    );
+
+    // Zero-initialize all fields
+    for ( int i = 0; i < num_fields; i++ ) {
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(obj_ref),
+                    ConstIR::makeWords(i + 1)
+                )),
+                ConstIR::makeZero()
+            )
+        );
+    }
+
+    // Super constructor
+    std::function<void(ClassDeclarationObject*)> construct = (
+        [&](ClassDeclarationObject* superclass_obj) -> void {
+            if ( superclass_obj->extended ) {
+                construct(superclass_obj->extended);
+            }
+
+            if ( superclass_obj != class_obj ) {
+                // Is not the same class as obj
+                for ( auto &method : superclass_obj->method_list ) {
+                    if ( method->is_constructor && method->getParameters().size() == 0 ) {
+                        // Call default constructor
+                        seq_vec.push_back(
+                            ExpIR::makeStmt(
+                                CallIR::makeExpr(
+                                    NameIR::makeExpr(CGConstants::uniqueMethodLabel(method)),
+                                    TempIR::makeExpr(obj_ref),
+                                    {}
+                                )
+                            )
+                        );
+                    }
+                }
+            }
+        }
+    );
+
+    construct(class_obj);
+    #warning TODO: call the appropriate constructor for this expr
+
+    return ESeqIR::makeExpr(
+        SeqIR::makeStmt(std::move(seq_vec)), 
+        TempIR::makeExpr(obj_ref)
+    );
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
@@ -440,6 +514,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
         // Static method invoked
         return CallIR::makeExpr(
             NameIR::makeExpr(CGConstants::uniqueStaticMethodLabel(expr.called_method)),
+            ConstIR::makeZero(),
             std::move(call_args_vec)
         );
     } else {
@@ -448,6 +523,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
 
         return CallIR::makeExpr(
             NameIR::makeExpr(CGConstants::uniqueMethodLabel(expr.called_method)),
+            convert(*expr.parent_expr),
             std::move(call_args_vec)
         );
     }
