@@ -71,7 +71,7 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
                 }
                 case BinOpIR::OpType::DIV: {
                     generic_tile.add_instructions_after({
-                        Cmp(operand2_reg, "0"), // Check for division by zero
+                        Cmp(operand2_reg, 0), // Check for division by zero
                         Je(LabelUse("__exception")), // Jump to exception handler if division by zero
                         Mov(REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
                         Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
@@ -82,7 +82,7 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
                 }
                 case BinOpIR::OpType::MOD: {
                     generic_tile.add_instructions_after({
-                        Cmp(operand2_reg, "0"), // Check for division by zero
+                        Cmp(operand2_reg, 0), // Check for division by zero
                         Je(LabelUse("__exception")), // Jump to exception handler if division by zero
                         Mov(REG32_ACCUM, operand1_reg), // Move low 32 bits of dividend into accumulator
                         Cdq(), // Sign extend REG32_ACCUM into REG32_DATA
@@ -171,13 +171,13 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
 
             generic_tile = Tile({
                 tile(address_reg, node.getAddress()),
-                Lea(Tile::ABSTRACT_REG, EffectiveAddress(address_reg))
+                Mov(Tile::ABSTRACT_REG, EffectiveAddress(address_reg))
             });
         },
 
         [&](NameIR &node) {
             generic_tile = Tile({
-                Mov(Tile::ABSTRACT_REG, node.getName())
+                Mov(Tile::ABSTRACT_REG, LabelUse(node.getName()))
             });
         },
 

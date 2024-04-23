@@ -93,14 +93,6 @@ class AssemblyCommon {
         (this->operands.push_back(operands), ...);
     }
 
-    // Get the index'th op (indexed starting at 1)
-    Operand& getOp(size_t index) {
-        if (index > operands.size()) {
-            THROW_CompilerError("Attempted to get operand out of range");
-        }
-        return operands[index - 1];
-    }
-
     // Remove things that arent registers from a set
     void removeGlobalData(std::unordered_set<std::string>& set) {
         std::unordered_set<std::string> set_copy = set;
@@ -112,6 +104,14 @@ class AssemblyCommon {
     }
 
   public:
+    // Get the index'th op (indexed starting at 1)
+    Operand& getOp(size_t index) {
+        if (index > operands.size()) {
+            THROW_CompilerError("Attempted to get operand out of range");
+        }
+        return operands[index - 1];
+    }
+    
     void replaceRegister(std::string original_register, std::string new_register) {
         for (auto& operand : operands) {
             // Replace any register equal to the original register in each operand

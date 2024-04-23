@@ -13,6 +13,26 @@ using namespace AssemblyRefactor;
 std::vector<std::string> BrainlessRegisterAllocator::instruction_registers 
     = {REG32_COUNTER, REG32_SOURCE, REG32_DEST};
 
+void checkAllTemporariesInitialized(std::list<AssemblyInstruction>& function_body) {
+    std::unordered_set<std::string> initialized;
+
+    for (auto& instr : function_body) {
+        for (auto& reg : instr.getReadRegisters()) {
+            if (!isRealRegister(reg) && !initialized.count(reg)) {
+                THROW_CompilerError("Temporary " + reg + " was never initialized!");
+            }
+        }
+
+        for (auto& reg : instr.getWriteRegisters()) {
+            if (!isRealRegister(reg) && !initialized.count(reg)) {
+                // Temporary is set to a value as of this instruction
+                initialized.insert(reg);
+            }
+        }
+    }
+}
+
+
 void BrainlessRegisterAllocator::findOffsets(std::list<AssemblyInstruction>& function_body) {
     for (auto& instr : function_body) {
         for (auto& reg : instr.getUsedRegisters()) {
@@ -26,6 +46,8 @@ void BrainlessRegisterAllocator::findOffsets(std::list<AssemblyInstruction>& fun
 }
 
 int32_t BrainlessRegisterAllocator::allocateRegisters(std::list<AssemblyInstruction>& function_body) {
+    checkAllTemporariesInitialized(function_body);
+
     findOffsets(function_body);
 
     std::list<AssemblyInstruction> new_instructions;
@@ -79,7 +101,7 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     }
 
     // Add a load instruction for each abstract register the instruction reads
-    for (auto& reg : read_registers) {
+    for (auto& reg : used_registers) {
         if (!isRealRegister(reg)) {
             target.emplace_back(loadAbstractRegister(abstract_to_real[reg], reg));
             target.back().tagWithComment("Load from " + reg);
@@ -91,7 +113,7 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     target.push_back(instruction);
 
     // Add a store instruction for each abstract register the instruction writes
-    for (auto& reg : write_registers) {
+    for (auto& reg : used_registers) {
         if (!isRealRegister(reg)) {
             target.emplace_back(storeAbstractRegister(reg, abstract_to_real[reg]));
             target.back().tagWithComment("Store to " + reg);
