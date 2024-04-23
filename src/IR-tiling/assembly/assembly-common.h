@@ -7,6 +7,7 @@
 
 #include "utillities/overload.h"
 #include "exceptions/exceptions.h"
+#include "IR/code-gen-constants.h"
 
 // Available x86 addressing modes
 struct EffectiveAddress {
@@ -38,10 +39,18 @@ struct EffectiveAddress {
     std::string toString();
 };
 
+// Label use operand, usually for jumps or data
+struct LabelUse {
+    std::string text;
+    LabelUse(std::string text) : text{text} {}
+};
+
+using RegisterString = std::string;
+
 // Operand for x86 assembly instructions
 //
-// Register (real or abstract), effective address, or immediate
-struct Operand : public std::variant<EffectiveAddress, std::string, int32_t> {
+// Register (real or abstract), label use, effective address, or immediate
+struct Operand : public std::variant<EffectiveAddress, LabelUse, RegisterString, int32_t> {
     using variant::variant;
 
     bool is_read = false;
@@ -68,7 +77,8 @@ struct Operand : public std::variant<EffectiveAddress, std::string, int32_t> {
         return std::visit(util::overload {
             [&](EffectiveAddress &adr) { return adr.toString(); },
             [&](std::string &reg) { return reg; },
-            [&](int32_t immediate) { return std::to_string(immediate); }
+            [&](int32_t immediate) { return std::to_string(immediate); },
+            [&](LabelUse &label) { return label.text; }
         }, *this);
     }
 };
@@ -91,6 +101,16 @@ class AssemblyCommon {
         return operands[index - 1];
     }
 
+    // Remove things that arent registers from a set
+    void removeGlobalData(std::unordered_set<std::string>& set) {
+        std::unordered_set<std::string> set_copy = set;
+        for (auto& reg : set_copy) {
+            if (reg.rfind(CGConstants::global_data_prefix, 0) == 0) {
+                set.erase(reg);
+            }
+        }
+    }
+
   public:
     void replaceRegister(std::string original_register, std::string new_register) {
         for (auto& operand : operands) {
@@ -101,7 +121,7 @@ class AssemblyCommon {
                         adr.index_register = new_register;
                     }
                     if (adr.base_register == original_register) {
-                        adr.base_register = original_register;
+                        adr.base_register = new_register;
                     }
                 },
                 [&](std::string& reg) {
@@ -109,7 +129,7 @@ class AssemblyCommon {
                         reg = new_register;
                     }
                 },
-                [&](int32_t) {}
+                [&](auto&) {}
             }, operand);
         }
     }
@@ -133,10 +153,11 @@ class AssemblyCommon {
                         result.insert(reg);
                     }
                 },
-                [&](int32_t) {}
+                [&](auto&) {}
             }, operand);
         }
 
+        removeGlobalData(result);
         return std::move(result);
     }
 
@@ -151,10 +172,11 @@ class AssemblyCommon {
                         result.insert(reg);
                     }
                 },
-                [&](int32_t) {}
+                [&](auto&) {}
             }, operand);
         }
-
+        
+        removeGlobalData(result);
         return std::move(result);
     }
 
@@ -174,11 +196,17 @@ class AssemblyCommon {
                 [&](std::string& reg) {
                     result.insert(reg);
                 },
-                [&](int32_t) {}
+                [&](auto&) {}
             }, operand);
         }
-
+        
+        removeGlobalData(result);
         return std::move(result);
     }
 
+    std::string tagged_comment; // A comment this instruction is tagged with, which will be printed with it
+
+    void tagWithComment(const std::string& text) {
+        tagged_comment = text;
+    }
 };

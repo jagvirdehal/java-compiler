@@ -5,6 +5,7 @@
 #include "IR-tiling/assembly/registers.h"
 #include "exceptions/exceptions.h"
 
+#include <iostream>
 #include <regex>
 
 using namespace AssemblyRefactor;
@@ -47,13 +48,19 @@ AssemblyInstruction BrainlessRegisterAllocator::storeAbstractRegister(std::strin
 }
 
 void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instruction, std::list<AssemblyInstruction>& target) {
+    std::string original_instruction_text = instruction.toString();
+
+    auto used_registers = instruction.getUsedRegisters();
+    auto read_registers = instruction.getReadRegisters();
+    auto write_registers = instruction.getWriteRegisters();
+
     // Each x86 instruction can use at most 3 registers; just asserting this is true
-    if (instruction.getUsedRegisters().size() > 3) {
+    if (used_registers.size() > 3) {
         std::string found_registers = "";
-        for (auto& reg : instruction.getUsedRegisters()) found_registers += " " + reg;
+        for (auto& reg : used_registers) found_registers += " " + reg;
         THROW_CompilerError(
             "x86 instruction using more than 3 registers? Something is wrong.\n"
-            "Instruction: " + instruction.toString() + "\n"
+            "Instruction: " + original_instruction_text + "\n"
             "Found registers:" + found_registers
         );
     }
@@ -70,19 +77,22 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     }
 
     // Add a load instruction for each abstract register the instruction reads
-    for (auto& reg : instruction.getReadRegisters()) {
+    for (auto& reg : read_registers) {
         if (!isRealRegister(reg)) {
             target.emplace_back(loadAbstractRegister(abstract_to_real[reg], reg));
+            target.back().tagWithComment("Load from " + reg);
         }
     }
 
     // Add the original instruction, now modified to use real registers
-    target.emplace_back(std::move(instruction));
+    instruction.tagWithComment(original_instruction_text);
+    target.push_back(instruction);
 
     // Add a store instruction for each abstract register the instruction writes
-    for (auto& reg : instruction.getWriteRegisters()) {
+    for (auto& reg : write_registers) {
         if (!isRealRegister(reg)) {
             target.emplace_back(storeAbstractRegister(reg, abstract_to_real[reg]));
+            target.back().tagWithComment("Store to " + reg);
         }
     }
 }  

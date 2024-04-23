@@ -67,7 +67,20 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
 
     std::string toString() {
         return std::visit(util::overload {
-            [&](auto &x) { return x.toString(); }
+            [&](auto &x) {
+                if (x.tagged_comment != "") {
+                    return x.toString() + " ; " + x.tagged_comment;
+                }
+                return x.toString(); 
+            }
+        }, *this);
+    }
+
+    void tagWithComment(const std::string& text) {
+        return std::visit(util::overload {
+            [&](auto &x) {
+                x.tagWithComment(text);
+            }
         }, *this);
     }
 };
