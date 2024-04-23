@@ -1,11 +1,14 @@
 #pragma once
 
 #include <cstdint>
-
-#include "IR-tiling/tiling/tile.h"
+#include <list>
+#include "IR-tiling/assembly/assembly-instruction.h"
 
 // Abstract class for a register allocation algorithm.
 class RegisterAllocator {
+  protected:
+    // Helper for asserting temporaries are not used without values being set
+    void checkAllTemporariesInitialized(std::list<AssemblyInstruction>& function_body);
   public:
     // Allocate concrete registers or "spill to stack" for all abstract registers in a function body, mutating it.
     //

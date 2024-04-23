@@ -4,6 +4,7 @@
 
 #include <unordered_map>
 #include <vector>
+#include <string>
 
 // Register allocator that spills all variables to the stack.
 class BrainlessRegisterAllocator : public RegisterAllocator {
