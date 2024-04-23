@@ -7,8 +7,7 @@
 #include <set>
 
 std::vector<std::string> LinearScanAllocator::instruction_registers 
-    = {Assembly::REG32_ACCUM, Assembly::REG32_BASE, Assembly::REG32_COUNTER, Assembly::REG32_DATA,
-        Assembly::REG32_SOURCE, Assembly::REG32_DEST};
+    = {Assembly::REG32_COUNTER, Assembly::REG32_SOURCE, Assembly::REG32_DEST};
 
 void LinearScanAllocator::analyzeLiveIntervals(Tile* function_body, int& instruction_no) {
     for (auto& instr : getInstructions(function_body)) {
@@ -45,6 +44,7 @@ int32_t LinearScanAllocator::allocateRegisters(Tile* function_body, int instruct
 }
 
 void LinearScanAllocator::updateLiveInterval(const std::string& reg, const int& instruction_no) {
+    if(reg == Assembly::REG32_ACCUM) return;
     auto& interval = live_intervals[reg];
     if (interval.first == 0 && interval.second == 0) {
         interval.first = instruction_no;
@@ -63,32 +63,41 @@ void LinearScanAllocator::assignRegisters() {
     for (auto& reg_interval : sorted_intervals) {
         releaseRegisters(reg_interval.second.first);
 
-        // Check if the register is previously spilled and needs to be reloaded
-        if (spills.find(reg_interval.first) != spills.end() && !free_registers.empty()) {
-            // Generate load instruction since it was spilled
-            auto load_instr = loadFromStack(reg_interval.first);
-            load_store_instructions.push_back(load_instr);
-        }
+        int interval_duration = reg_interval.second.second - reg_interval.second.first;
 
-        if (free_registers.empty()) {
-            spillRegister(reg_interval.first);
-            // Reload register from stack if needed for use
+        // Check if the interval is short-lived, to prevent blocking a register for too long
+        if (interval_duration <= 20) {  
+            if (free_registers.empty()) {
+                spillRegister(reg_interval.first);
+                auto load_instr = loadFromStack(reg_interval.first);
+                load_store_instructions.push_back(load_instr);
+            } else {
+                register_assignments[reg_interval.first] = free_registers.back();
+                free_registers.pop_back();
+            }
+        } else {
+            // Spill long-lived intervals directly
+            spillRegister(reg_interval.first);  
             if (live_intervals[reg_interval.first].first <= reg_interval.second.second) {
                 auto load_instr = loadFromStack(reg_interval.first);
                 load_store_instructions.push_back(load_instr);
             }
-        } else {
-            register_assignments[reg_interval.first] = free_registers.back();
-            free_registers.pop_back();
         }
-    }
+        // std::cout << reg_interval.first << " " << reg_interval.second.first << " " << reg_interval.second.second << " " <<
+        // register_assignments[reg_interval.first] << std::endl;
 
-    // Generate store instructions for all spilled registers
-    for (const auto& reg : register_assignments) {
-        if (spills.find(reg.first) != spills.end()) {
-            auto store_instr = storeToStack(reg.first);
-            load_store_instructions.push_back(store_instr);
+        // Generate store instructions for all spilled registers
+        for (const auto& reg : register_assignments) {
+            if (spills.find(reg.first) != spills.end()) {
+                auto store_instr = storeToStack(reg.first);
+                load_store_instructions.push_back(store_instr);
+            }
         }
+
+        // for(auto assignment: register_assignments) {
+        //     std::cout << assignment.first << " " << assignment.second << std::endl;
+        // }
+        // std::cout << "\n\n" << std::endl;
     }
 }
 
