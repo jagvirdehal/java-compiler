@@ -1271,30 +1271,22 @@ void IRBuilderVisitor::operator()(ClassDeclaration &node) {
 
     // Put function labels in dispatch vector at correct offset
     for ( auto &method : class_dv.dispatch_vector ) {
-        std::string method_label = "";
-        if (method != nullptr) {
-            if (method->ast_reference->hasModifier(Modifier::STATIC)) {
-                method_label = CGConstants::uniqueStaticMethodLabel(method);
-            } else {
-                method_label = CGConstants::uniqueMethodLabel(method);
-            }
-
-            comp_unit.appendStartStatement(
-                MoveIR::makeStmt(
-                    MemIR::makeExpr(
+        std::string method_label =  CGConstants::uniqueMethodLabel(method);
+        comp_unit.appendStartStatement(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj)),
                         BinOpIR::makeExpr(
-                            BinOpIR::ADD,
-                            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj)),
-                            BinOpIR::makeExpr(
-                                BinOpIR::MUL,
-                                ConstIR::makeExpr(DVBuilder::getAssignment(method)),
-                                ConstIR::makeWords()
-                            )
+                            BinOpIR::MUL,
+                            ConstIR::makeExpr(DVBuilder::getAssignment(method)),
+                            ConstIR::makeWords()
                         )
-                    ),
-                    TempIR::makeExpr(method_label))
-                );
-        }
+                    )
+                ),
+                NameIR::makeExpr(method_label))
+            );
     }
 
     // Add methods and fields
