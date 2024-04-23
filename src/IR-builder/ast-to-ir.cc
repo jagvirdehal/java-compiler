@@ -313,10 +313,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
     if ( auto lit = std::get_if<int64_t>(&expr) ) {
         // int64_t
         int64_t value = *lit;
-        auto const_ir = make_unique<ExpressionIR>(
-            in_place_type<ConstIR>,
-            value
-        );
+        auto const_ir = ConstIR::makeExpr(value);
         return const_ir;
     } else if ( auto lit = std::get_if<bool>(&expr) ) {
         // bool
@@ -328,22 +325,24 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
     } else if ( auto lit = std::get_if<char>(&expr) ) {
         // char
         char value = *lit;
-        auto const_ir = make_unique<ExpressionIR>(
-            in_place_type<ConstIR>,
-            value
-        );
+        auto const_ir = ConstIR::makeExpr(value);
         return const_ir;
     } else if ( auto lit = std::get_if<string>(&expr) ) {
         // string
         string value = *lit;
+        vector<unique_ptr<StatementIR>> seq_vec;
 
-        THROW_ASTtoIRError("TODO: Deferred to A6 - unhandled literal type");
+        seq_vec.push_back(...);
+        seq_vec.push_back(...);
+        seq_vec.push_back(...);
+        seq_vec.push_back(...);
 
+        return ESeqIR::makeExpr(SeqIR::makeStmt(seq_vec), /* ref to string obj */);
     } else if ( auto lit = std::get_if<nullptr_t>(&expr) ) {
         // nullptr_t
         return ConstIR::makeZero();
     } else {
-        THROW_ASTtoIRError("Unhandled literal type");
+        THROW_CompilerError("Unhandled literal type");
     }
 }
 
