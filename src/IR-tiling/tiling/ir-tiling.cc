@@ -168,13 +168,8 @@ ExpressionTile IRToTilesConverter::tile(const std::string &abstract_reg, Express
             std::string address_reg = newAbstractRegister();
 
             generic_tile = Tile({
-<<<<<<< HEAD
                 tile(address_reg, node.getAddress()),
-                Assembly::Mov(Tile::ABSTRACT_REG, Assembly::MakeAddress(address_reg))
-=======
-                tile(node.getAddress(), address_reg),
                 AssemblyRefactor::Lea(Tile::ABSTRACT_REG, EffectiveAddress(address_reg))
->>>>>>> progress
             });
         },
 
@@ -250,38 +245,25 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             std::string cond_reg = newAbstractRegister();
 
             generic_tile = Tile({
-<<<<<<< HEAD
                 tile(cond_reg, node.getCondition()),
-                Assembly::Test(cond_reg, cond_reg),
-                Assembly::JumpIfNZ(node.trueLabel())
-=======
-                tile(node.getCondition(), cond_reg),
                 AssemblyRefactor::Test(cond_reg, cond_reg),
                 AssemblyRefactor::JumpIfNZ(node.trueLabel())
->>>>>>> progress
             });
         },
 
         [&](JumpIR &node) {
             if (auto target = std::get_if<NameIR>(&node.getTarget())) {
                 generic_tile = Tile({
-                    Assembly::Jump(target->getName())
+                    AssemblyRefactor::Jump(target->getName())
                 });
             } else {
                 std::string target_reg = newAbstractRegister();
 
-<<<<<<< HEAD
                 generic_tile = Tile({
                     tile(target_reg, node.getTarget()),
-                    Assembly::Jump(target_reg)
+                    AssemblyRefactor::Jump(target_reg)
                 });
             }
-=======
-            generic_tile = Tile({
-                tile(node.getTarget(), target_reg),
-                AssemblyRefactor::Jump(target_reg)
-            });
->>>>>>> progress
         },
 
         [&](LabelIR &node) {
@@ -298,13 +280,8 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                         std::string temp_value_reg = newAbstractRegister();
 
                         generic_tile = Tile({
-<<<<<<< HEAD
                             tile(temp_value_reg, node.getSource()),
-                            Assembly::Mov(Assembly::MakeAddress(target.getName()), temp_value_reg)
-=======
-                            tile(node.getSource(), temp_value_reg),
                             AssemblyRefactor::Mov(EffectiveAddress(target.getName()), temp_value_reg)
->>>>>>> progress
                         });
                     } else {
                         generic_tile = Tile({
@@ -318,15 +295,9 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                     std::string source_reg = newAbstractRegister();
 
                     generic_tile = Tile({
-<<<<<<< HEAD
                         tile(source_reg, node.getSource()),
                         tile(address_reg, target.getAddress()),
-                        Assembly::Mov(Assembly::MakeAddress(address_reg), source_reg)
-=======
-                        tile(node.getSource(), source_reg),
-                        tile(target.getAddress(), address_reg),
                         AssemblyRefactor::Mov(EffectiveAddress(address_reg), source_reg)
->>>>>>> progress
                     });
                 },
 
@@ -339,12 +310,7 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             if (node.getRet()) {
                 // Return a value by placing it in REG32_ACCUM
                 generic_tile.add_instructions_after({
-<<<<<<< HEAD
-                    tile(Assembly::REG32_ACCUM, *node.getRet())
-=======
-                    AssemblyRefactor::Comment("return a value by placing it in REG32_ACCUM"),
-                    tile(*node.getRet(), AssemblyRefactor::REG32_ACCUM)
->>>>>>> progress
+                    tile(AssemblyRefactor::REG32_ACCUM, *node.getRet())
                 });
             }
             // Function epilogue
@@ -371,8 +337,8 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                 }
 
                 generic_tile.add_instructions_after({
-                    tile(Assembly::REG32_ACCUM, *node.getArgs().front()),
-                    Assembly::Call(called_function)
+                    tile(AssemblyRefactor::REG32_ACCUM, *node.getArgs().front()),
+                    AssemblyRefactor::Call(called_function)
                 });
 
                 return;
@@ -383,29 +349,15 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             // Push arguments onto stack, in reverse order (CDECL)
             for (auto &arg : node.getArgs()) {
                 std::string argument_register = newAbstractRegister();
-<<<<<<< HEAD
                 generic_tile.add_instructions_before({
                     tile(argument_register, *arg),
-                    Assembly::Push(argument_register)
-=======
-                generic_tile.add_instructions_after({
-                    tile(*arg, argument_register),
                     AssemblyRefactor::Push(argument_register)
->>>>>>> progress
                 });
             }
             generic_tile.add_instructions_before({AssemblyRefactor::Comment("Call: pushing arguments onto stack")});
 
             // Perform call instruction on function label
-<<<<<<< HEAD
-            generic_tile.add_instruction(Assembly::Call(called_function));
-=======
-            if (auto name = std::get_if<NameIR>(&node.getTarget())) {
-                generic_tile.add_instruction(AssemblyRefactor::Call(name->getName()));
-            } else {
-                THROW_CompilerError("Function call target is not a label"); 
-            }
->>>>>>> progress
+            generic_tile.add_instruction(AssemblyRefactor::Call(called_function));
 
             // Pop arguments from stack
             generic_tile.add_instruction(AssemblyRefactor::Comment("Call: popping arguments off stack"));

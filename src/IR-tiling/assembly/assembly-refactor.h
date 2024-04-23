@@ -21,7 +21,7 @@ struct Mov : public AssemblyCommon {
     }
 
     std::string toString() {
-        return "mov " + dest.toString() + " " + source.toString();
+        return "mov " + dest.toString() + ", " + source.toString();
     }
 };
 
@@ -241,6 +241,12 @@ struct SysCall : public NoOperandInstruction {
 struct Comment : public NoOperandInstruction {
     Comment(std::string text) 
         : NoOperandInstruction{"; " + text} 
+    {}
+};
+
+struct Label : public NoOperandInstruction {
+    Label(std::string label) 
+        : NoOperandInstruction{label + ":"} 
     {}
 };
 

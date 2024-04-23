@@ -40,7 +40,7 @@ std::list<std::string> Tile::getFullInstructions() {
     for (auto& instr : instructions) {
         std::visit(util::overload {
             [&](AssemblyInstruction& asmb) {
-                output.push_back(asmb);
+                output.push_back(asmb.toString());
             },
             [&](StatementTile tile) {
                 for (auto& sub_instr : tile->getFullInstructions()) {
@@ -83,7 +83,7 @@ void Tile::assignAbstract(std::string reg) {
     for (auto& instr : this->instructions) {
         std::visit(util::overload {
             [&](AssemblyInstruction& asmb) {
-                asmb = std::regex_replace(asmb, std::regex(Tile::ABSTRACT_REG), reg);
+                asmb.replaceRegister(Tile::ABSTRACT_REG, reg);
             },
             [&](StatementTile tile) {},
             [&](ExpressionTile tile) {

@@ -1,104 +1,104 @@
-#include "brainless-allocator.h"
-#include "IR-tiling/tiling/tile.h"
-#include "utillities/overload.h"
-#include "IR-tiling/assembly/assembly.h"
-#include "exceptions/exceptions.h"
+// #include "brainless-allocator.h"
+// #include "IR-tiling/tiling/tile.h"
+// #include "utillities/overload.h"
+// #include "IR-tiling/assembly/assembly.h"
+// #include "exceptions/exceptions.h"
 
-#include <regex>
+// #include <regex>
 
-std::vector<std::string> BrainlessRegisterAllocator::instruction_registers 
-    = {Assembly::REG32_COUNTER, Assembly::REG32_SOURCE, Assembly::REG32_DEST};
+// std::vector<std::string> BrainlessRegisterAllocator::instruction_registers 
+//     = {Assembly::REG32_COUNTER, Assembly::REG32_SOURCE, Assembly::REG32_DEST};
 
-void BrainlessRegisterAllocator::findOffsets(Tile* function_body) {
-    for (auto& instr : getInstructions(function_body)) {
-        std::visit(util::overload {
-            [&](AssemblyInstruction& asmb) {},
-            [&](StatementTile tile) {
-                findOffsets(tile);
-            },
-            [&](ExpressionTile tile) {
-                if (!Assembly::isRealRegister(tile.second) && !reg_offsets.count(tile.second)) {
-                    reg_offsets[tile.second] = stack_offset;
-                    stack_offset += 4;
-                }
-                findOffsets(tile.first);
-            }
-        }, instr);
-    }
-}
+// void BrainlessRegisterAllocator::findOffsets(Tile* function_body) {
+//     for (auto& instr : getInstructions(function_body)) {
+//         std::visit(util::overload {
+//             [&](AssemblyInstruction& asmb) {},
+//             [&](StatementTile tile) {
+//                 findOffsets(tile);
+//             },
+//             [&](ExpressionTile tile) {
+//                 if (!Assembly::isRealRegister(tile.second) && !reg_offsets.count(tile.second)) {
+//                     reg_offsets[tile.second] = stack_offset;
+//                     stack_offset += 4;
+//                 }
+//                 findOffsets(tile.first);
+//             }
+//         }, instr);
+//     }
+// }
 
-int32_t BrainlessRegisterAllocator::allocateRegisters(Tile* function_body, int instruction_no) {
-    findOffsets(function_body);
+// int32_t BrainlessRegisterAllocator::allocateRegisters(Tile* function_body) {
+//     findOffsets(function_body);
 
-    std::vector<Instruction> new_instructions;
+//     std::vector<Instruction> new_instructions;
 
-    for (auto& instr : getInstructions(function_body)) {
-        std::visit(util::overload {
-            [&](AssemblyInstruction& asmb) {
-                replaceAbstracts(asmb, new_instructions);
-            },
-            [&](StatementTile tile) {
-                allocateRegisters(tile);
-                new_instructions.push_back(tile);
-            },
-            [&](ExpressionTile tile) {
-                tile.first->assignAbstract(tile.second);
-                allocateRegisters(tile.first);
-                new_instructions.push_back(tile.first);
-            }
-        }, instr);
-    }
+//     for (auto& instr : getInstructions(function_body)) {
+//         std::visit(util::overload {
+//             [&](AssemblyInstruction& asmb) {
+//                 replaceAbstracts(asmb, new_instructions);
+//             },
+//             [&](StatementTile tile) {
+//                 allocateRegisters(tile);
+//                 new_instructions.push_back(tile);
+//             },
+//             [&](ExpressionTile tile) {
+//                 tile.first->assignAbstract(tile.second);
+//                 allocateRegisters(tile.first);
+//                 new_instructions.push_back(tile.first);
+//             }
+//         }, instr);
+//     }
 
-    getInstructions(function_body) = new_instructions;
+//     getInstructions(function_body) = new_instructions;
 
-    return reg_offsets.size();
-}
+//     return reg_offsets.size();
+// }
 
-Instruction BrainlessRegisterAllocator::loadAbstractRegister(std::string reg_to, std::string abstract_reg) {
-    return Assembly::Mov(
-        reg_to,
-        Assembly::MakeAddress(Assembly::REG32_STACKBASEPTR, "", 1, -1 * reg_offsets[abstract_reg])
-    );
-}
+// Instruction BrainlessRegisterAllocator::loadAbstractRegister(std::string reg_to, std::string abstract_reg) {
+//     return Assembly::Mov(
+//         reg_to,
+//         Assembly::MakeAddress(Assembly::REG32_STACKBASEPTR, "", 1, -1 * reg_offsets[abstract_reg])
+//     );
+// }
 
-Instruction BrainlessRegisterAllocator::storeAbstractRegister(std::string abstract_reg, std::string reg_from) {
-    return Assembly::Mov(
-        Assembly::MakeAddress(Assembly::REG32_STACKBASEPTR, "", 1, -1 * reg_offsets[abstract_reg]),
-        reg_from
-    );
-}
+// Instruction BrainlessRegisterAllocator::storeAbstractRegister(std::string abstract_reg, std::string reg_from) {
+//     return Assembly::Mov(
+//         Assembly::MakeAddress(Assembly::REG32_STACKBASEPTR, "", 1, -1 * reg_offsets[abstract_reg]),
+//         reg_from
+//     );
+// }
 
-void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction instruction, std::vector<Instruction>& target_vector) {
-    auto original_instruction = instruction;
+// void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction instruction, std::vector<Instruction>& target_vector) {
+//     auto original_instruction = instruction;
 
-    // Inefficiently, search for every single abstract register used in the function in every single instruction
-    std::vector<AssemblyInstruction> found;
-    for (const auto& [reg, offset] : reg_offsets) {
-        if (instruction.find(reg) != std::string::npos) {
-            found.push_back(reg);
-        } 
-    }
+//     // Inefficiently, search for every single abstract register used in the function in every single instruction
+//     std::vector<AssemblyInstruction> found;
+//     for (const auto& [reg, offset] : reg_offsets) {
+//         if (instruction.find(reg) != std::string::npos) {
+//             found.push_back(reg);
+//         } 
+//     }
 
-    if (found.size() > 3) {
-        std::string found_registers = "";
-        for (auto& reg: found) found_registers += " " + reg;
-        THROW_CompilerError(
-            "x86 instruction using more than 3 registers? Something is wrong.\n"
-            "Instruction: " + instruction + "\n"
-            "Found registers:" + found_registers
-        );
-    }
+//     if (found.size() > 3) {
+//         std::string found_registers = "";
+//         for (auto& reg: found) found_registers += " " + reg;
+//         THROW_CompilerError(
+//             "x86 instruction using more than 3 registers? Something is wrong.\n"
+//             "Instruction: " + instruction + "\n"
+//             "Found registers:" + found_registers
+//         );
+//     }
 
-    target_vector.push_back(Assembly::LineBreak());
-    for (int i = 0; i < found.size(); ++i) {
-        target_vector.push_back(loadAbstractRegister(instruction_registers[i], found[i]));
-        instruction = std::regex_replace(instruction, std::regex(found[i]), instruction_registers[i]);
-    }
+//     target_vector.push_back(Assembly::LineBreak());
+//     for (int i = 0; i < found.size(); ++i) {
+//         target_vector.push_back(loadAbstractRegister(instruction_registers[i], found[i]));
+//         instruction = std::regex_replace(instruction, std::regex(found[i]), instruction_registers[i]);
+//     }
     
-    auto optional_comment = found.size() ? " " + Assembly::Comment(original_instruction) : "";
-    target_vector.push_back(instruction + optional_comment);
+//     auto optional_comment = found.size() ? " " + Assembly::Comment(original_instruction) : "";
+//     target_vector.push_back(instruction + optional_comment);
 
-    for (int i = 0; i < found.size(); ++i) {
-        target_vector.push_back(storeAbstractRegister(found[i], instruction_registers[i]));
-    }
-}  
+//     for (int i = 0; i < found.size(); ++i) {
+//         target_vector.push_back(storeAbstractRegister(found[i], instruction_registers[i]));
+//     }
+// }  

@@ -33,7 +33,8 @@ using AssemblyInstructionInheritedVariant = std::variant<
     AssemblyRefactor::SetGE,
     AssemblyRefactor::IMul,
     AssemblyRefactor::IDiv,
-    AssemblyRefactor::Comment
+    AssemblyRefactor::Comment,
+    AssemblyRefactor::Label
 >;
 
 struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
@@ -55,6 +56,12 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
     std::unordered_set<std::string*>& getReadRegisters() {
         return std::visit(util::overload {
             [&](auto &x) -> std::unordered_set<std::string*>& { return x.read_registers; }
+        }, *this);
+    }
+
+    void replaceRegister(std::string original_register, std::string new_register) {
+        return std::visit(util::overload {
+            [&](auto &x) { return x.replaceRegister(original_register, new_register); }
         }, *this);
     }
 

@@ -95,6 +95,14 @@ class AssemblyCommon {
     }
 
   public:
+    void replaceRegister(std::string original_register, std::string new_register) {
+        for (auto used_reg : used_registers) {
+            if (*used_reg == original_register) {
+                *used_reg = new_register;
+            }
+        }
+    }
+
     std::unordered_set<Operand*> used_operands;         // Used operands
     std::unordered_set<std::string*> used_registers;    // Used (real or abstract) registers
 
