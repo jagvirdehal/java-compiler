@@ -82,6 +82,7 @@ class AssemblyGenerator {
         std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
         
         // Reset output directory
+        std::filesystem::create_directory("output");
         for (auto& path: std::filesystem::directory_iterator("output")) {
             std::filesystem::remove_all(path);
         }
