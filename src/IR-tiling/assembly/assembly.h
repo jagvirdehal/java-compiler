@@ -2,6 +2,7 @@
 
 #include <string>
 #include "assembly-common.h"
+#include "registers.h"
 
 // File that contains the classes for each used x86 assembly instruction.
 //
@@ -191,13 +192,17 @@ struct Ret : public NoOperandInstruction {
 struct Call : public NoOperandInstruction {
     Call(std::string static_label) 
         : NoOperandInstruction{"call " + static_label} 
-    {}
+    {
+        writeRealRegisters(REG32_ACCUM);
+    }
 };
 
 struct SysCall : public NoOperandInstruction {
     SysCall() 
         : NoOperandInstruction{"int 0x80"} 
-    {}
+    {
+        readRealRegisters(REG32_ACCUM, REG32_BASE);
+    }
 };
 
 struct Comment : public NoOperandInstruction {
@@ -275,6 +280,12 @@ struct SetGE : public BoolSetInstruction {
 struct IMul : public AssemblyCommon {
     IMul(Operand multiplicand) {
         useOperands(multiplicand.read());
+
+        readRealRegisters(REG32_ACCUM);
+        readRealRegisters(REG32_DATA);
+        
+        writeRealRegisters(REG32_ACCUM);
+        writeRealRegisters(REG32_DATA);
     }
 
     std::string toString() {
@@ -285,6 +296,12 @@ struct IMul : public AssemblyCommon {
 struct IDiv : public AssemblyCommon {
     IDiv(Operand divisor) {
         useOperands(divisor.read());
+        
+        readRealRegisters(REG32_ACCUM);
+        readRealRegisters(REG32_DATA);
+
+        writeRealRegisters(REG32_ACCUM);
+        writeRealRegisters(REG32_DATA);
     }
 
     std::string toString() {

@@ -85,12 +85,27 @@ struct Operand : public std::variant<EffectiveAddress, LabelUse, RegisterString,
 
 class AssemblyCommon {
 
-    std::vector<Operand> operands; // Used operands
+    // Used operands
+    std::vector<Operand> operands;
+
+    // Real registers that the instruction always reads/write (e.g. imul writing to EAX)
+    std::unordered_set<std::string> read_real_registers;
+    std::unordered_set<std::string> written_real_registers;
 
   protected:
     template<typename... OperandType>
     void useOperands(OperandType&... operands) {
         (this->operands.push_back(operands), ...);
+    }
+
+    template<typename... StringType>
+    void readRealRegisters(StringType&... regs) {
+        (this->read_real_registers.insert(regs), ...);
+    }
+
+    template<typename... StringType>
+    void writeRealRegisters(StringType&... regs) {
+        (this->written_real_registers.insert(regs), ...);
     }
 
     // Remove things that arent registers from a set
@@ -157,6 +172,10 @@ class AssemblyCommon {
             }, operand);
         }
 
+        for (auto& reg : read_real_registers) {
+            result.insert(reg);
+        }
+
         removeGlobalData(result);
         return std::move(result);
     }
@@ -174,6 +193,10 @@ class AssemblyCommon {
                 },
                 [&](auto&) {}
             }, operand);
+        }
+
+        for (auto& reg : written_real_registers) {
+            result.insert(reg);
         }
         
         removeGlobalData(result);
@@ -198,6 +221,13 @@ class AssemblyCommon {
                 },
                 [&](auto&) {}
             }, operand);
+        }
+
+        for (auto& reg : read_real_registers) {
+            result.insert(reg);
+        }
+        for (auto& reg : written_real_registers) {
+            result.insert(reg);
         }
         
         removeGlobalData(result);
