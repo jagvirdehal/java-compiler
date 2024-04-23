@@ -5,7 +5,7 @@
 #include "IR-tiling/assembly/assembly-instruction.h"
 #include "IR-tiling/assembly/registers.h"
 
-using namespace AssemblyRefactor;
+using namespace Assembly;
 
 // Helper for asserting temporaries are not used without values being set
 void RegisterAllocator::checkAllTemporariesInitialized(std::list<AssemblyInstruction>& function_body) {

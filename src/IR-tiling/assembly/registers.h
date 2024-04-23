@@ -1,6 +1,6 @@
 #pragma once
 
-namespace AssemblyRefactor {
+namespace Assembly {
     // 8 bit general purpose registers
     static const inline std::string REG8L_ACCUM = "al";
     static const inline std::string REG8H_ACCUM = "ah";

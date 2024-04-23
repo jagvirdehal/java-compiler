@@ -1,41 +1,41 @@
 #pragma once
 
-#include "assembly-refactor.h"
+#include "assembly.h"
 #include <variant>
 
 // AssemblyInstruction variant, to treat instructions polymorphically without needing pointers
 
 using AssemblyInstructionInheritedVariant = std::variant<
-    AssemblyRefactor::Mov,
-    AssemblyRefactor::Jump,
-    AssemblyRefactor::Je,
-    AssemblyRefactor::JumpIfNZ,
-    AssemblyRefactor::Lea,
-    AssemblyRefactor::Add,
-    AssemblyRefactor::Sub,
-    AssemblyRefactor::Xor,
-    AssemblyRefactor::And,
-    AssemblyRefactor::Or,
-    AssemblyRefactor::MovZX,
-    AssemblyRefactor::Cmp,
-    AssemblyRefactor::Test,
-    AssemblyRefactor::Push,
-    AssemblyRefactor::Pop,
-    AssemblyRefactor::Cdq,
-    AssemblyRefactor::Ret,
-    AssemblyRefactor::Call,
-    AssemblyRefactor::SysCall,
-    AssemblyRefactor::SetZ,
-    AssemblyRefactor::SetNZ,
-    AssemblyRefactor::SetL,
-    AssemblyRefactor::SetG,
-    AssemblyRefactor::SetLE,
-    AssemblyRefactor::SetGE,
-    AssemblyRefactor::IMul,
-    AssemblyRefactor::IDiv,
-    AssemblyRefactor::Comment,
-    AssemblyRefactor::Label,
-    AssemblyRefactor::LineBreak
+    Assembly::Mov,
+    Assembly::Jump,
+    Assembly::Je,
+    Assembly::JumpIfNZ,
+    Assembly::Lea,
+    Assembly::Add,
+    Assembly::Sub,
+    Assembly::Xor,
+    Assembly::And,
+    Assembly::Or,
+    Assembly::MovZX,
+    Assembly::Cmp,
+    Assembly::Test,
+    Assembly::Push,
+    Assembly::Pop,
+    Assembly::Cdq,
+    Assembly::Ret,
+    Assembly::Call,
+    Assembly::SysCall,
+    Assembly::SetZ,
+    Assembly::SetNZ,
+    Assembly::SetL,
+    Assembly::SetG,
+    Assembly::SetLE,
+    Assembly::SetGE,
+    Assembly::IMul,
+    Assembly::IDiv,
+    Assembly::Comment,
+    Assembly::Label,
+    Assembly::LineBreak
 >;
 
 struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {

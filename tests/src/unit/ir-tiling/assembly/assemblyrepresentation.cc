@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 
-#include "IR-tiling/assembly/assembly-refactor.h"
+#include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/assembly/assembly-instruction.h"
 
 #include "IR-tiling/register-allocation/brainless-allocator.h"
@@ -8,7 +8,7 @@
 // Test that the assembly representation works
 
 TEST(Mov, StringifiesCorrectly) {
-    using namespace AssemblyRefactor;
+    using namespace Assembly;
 
     Operand a = "a";
     AssemblyInstruction move_basic = Mov("a", "b");
@@ -21,7 +21,7 @@ TEST(Mov, StringifiesCorrectly) {
 }
 
 TEST(Lea, registerusagecorrect) {
-    using namespace AssemblyRefactor;
+    using namespace Assembly;
 
     AssemblyInstruction lea = Lea("eax", EffectiveAddress("%REGABS1%"));
 
@@ -56,7 +56,7 @@ TEST(Lea, registerusagecorrect) {
 }
 
 TEST(BrainlessRegisterAllocator, allocatescorrectly) {
-    using namespace AssemblyRefactor;
+    using namespace Assembly;
 
     BrainlessRegisterAllocator allocator;
 

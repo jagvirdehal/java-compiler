@@ -1,14 +1,14 @@
 #include "brainless-allocator.h"
 #include "IR-tiling/tiling/tile.h"
 #include "utillities/overload.h"
-#include "IR-tiling/assembly/assembly-refactor.h"
+#include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/assembly/registers.h"
 #include "exceptions/exceptions.h"
 
 #include <iostream>
 #include <regex>
 
-using namespace AssemblyRefactor;
+using namespace Assembly;
 
 std::vector<std::string> BrainlessRegisterAllocator::instruction_registers 
     = {REG32_COUNTER, REG32_SOURCE, REG32_DEST};

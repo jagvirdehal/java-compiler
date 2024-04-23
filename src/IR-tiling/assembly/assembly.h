@@ -8,7 +8,7 @@
 // Each added instruction should be added to the variant in assembly-instruction.h.
 // Each added instruction should implement toString(), and define which operands are read/written to (can be both)
 
-namespace AssemblyRefactor {
+namespace Assembly {
 
 /* Assorted instructions */
 

@@ -14,13 +14,13 @@
 #include "IR-tiling/register-allocation/brainless-allocator.h"
 #include "IR-tiling/register-allocation/noop-allocator.h"
 
-#include "IR-tiling/assembly/assembly-refactor.h"
+#include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/assembly/registers.h"
 
 #define USED_REG_ALLOCATOR BrainlessRegisterAllocator
 // #define USED_REG_ALLOCATOR NoopRegisterAllocator
 
-using namespace AssemblyRefactor;
+using namespace Assembly;
 
 // Find methods/static fields from other compilation units that need to be linked to the assembly file for this cu
 class DependencyFinder : public IRSkipVisitor {

@@ -9,7 +9,7 @@
 
 #include <regex>
 
-using namespace AssemblyRefactor;
+using namespace Assembly;
 
 size_t IRToTilesConverter::abstract_reg_count = 0;
 
