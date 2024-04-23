@@ -242,7 +242,9 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
 
     return std::visit(util::overload{
         [&](Literal &lit) {
+            // Source is a literal
             if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
+                // Target is primitive
                 unique_ptr<ExpressionIR> expr;
 
                 std::visit(util::overload{
@@ -299,7 +301,11 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                 }, lit);
 
                 return expr;
+            } else if ( auto str_ptr = get_if<string>(&lit) ) {
+                // Target non-primitive && source is a string
+                THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive casts");
             } else {
+                // Target is non-primitive
                 THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive casts");
             } // if
         },
