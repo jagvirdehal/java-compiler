@@ -6,9 +6,9 @@
 #include <variant>
 #include <utility>
 
-class Tile;
+#include "IR-tiling/assembly/assembly-instruction.h"
 
-using AssemblyInstruction = std::string;
+class Tile;
 
 using StatementTile = Tile*;
 using ExpressionTile = std::pair<Tile*, std::string>;
@@ -54,7 +54,7 @@ class Tile {
     void add_instructions_before(std::vector<Instruction>);
 
     // Get the full assembly instructions for this tile, expanding other tiles it uses
-    std::list<std::string> getFullInstructions();
+    std::list<AssemblyInstruction> getFullInstructions();
 
     // Construct tile with instructions
     Tile(std::vector<Instruction>);

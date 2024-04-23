@@ -29,13 +29,16 @@ class CGConstants {
       std::unordered_map<declObj, std::string> &labels
     ) {
         if (!labels.count(obj)) {
-            std::string label = prefix + "_ID" + std::to_string(id_counter++) + "__#" + actual_name;
+            std::string label = global_data_prefix + prefix + "_ID" + std::to_string(id_counter++) + "__#" + actual_name;
             labels[obj] = label;
         }
         return labels[obj];
     }
 
   public:
+    // String global data is prepended with, that non global data cannot start with
+    const static inline std::string global_data_prefix = "_#";
+
     // Produce a label for the declaration object, that is guaranteed to not conflict with any other object.
     //
     // Returns the same label for the same object every time.

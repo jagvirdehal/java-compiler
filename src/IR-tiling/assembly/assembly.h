@@ -1,209 +1,312 @@
 #pragma once
 
 #include <string>
-#include <cmath>
+#include "assembly-common.h"
+#include "registers.h"
 
-#include "exceptions/exceptions.h"
+// File that contains the classes for each used x86 assembly instruction.
+//
+// Each added instruction should be added to the variant in assembly-instruction.h.
+// Each added instruction should implement toString(), and define which operands are read/written to (can be both)
 
-// Helper methods for creating x86 assembly instructions
-class Assembly {
-  public:
-    // 8 bit general purpose registers
-    static const inline std::string REG8L_ACCUM = "al";
-    static const inline std::string REG8H_ACCUM = "ah";
+namespace Assembly {
 
-    static const inline std::string REG8L_BASE = "bl";
-    static const inline std::string REG8H_BASE = "bh";
+/* Assorted instructions */
 
-    static const inline std::string REG8L_COUNTER = "cl";
-    static const inline std::string REG8H_COUNTER = "ch";
-
-    static const inline std::string REG8L_DATA = "dl";
-    static const inline std::string REG8H_DATA = "dh";
-
-    static const inline std::string REG8L_STACKPTR = "spl";
-    static const inline std::string REG8L_STACKBASEPTR = "bpl";
-
-    static const inline std::string REG8L_SOURCE = "sil";
-    static const inline std::string REG8L_DEST = "dil";
-
-    // 16 bit general purpose registers
-    static const inline std::string REG16_ACCUM = "ax";
-    static const inline std::string REG16_BASE = "bx";
-    static const inline std::string REG16_COUNTER = "cx";
-    static const inline std::string REG16_DATA = "dx";
-
-    static const inline std::string REG16_STACKPTR = "sp";
-    static const inline std::string REG16_STACKBASEPTR = "bp";
-
-    static const inline std::string REG16_SOURCE = "si";
-    static const inline std::string REG16_DEST = "di";
-
-    // 32 bit general purpose registers
-    static const inline std::string REG32_ACCUM = "eax";
-    static const inline std::string REG32_BASE = "ebx";
-    static const inline std::string REG32_COUNTER = "ecx";
-    static const inline std::string REG32_DATA = "edx";
-
-    static const inline std::string REG32_STACKPTR = "esp"; // Stack pointer
-    static const inline std::string REG32_STACKBASEPTR = "ebp"; // Stack frame pointer
-
-    static const inline std::string REG32_SOURCE = "esi";
-    static const inline std::string REG32_DEST = "edi";
-
-    // Instruction pointer register (not a gpr)
-    static const inline std::string REG32_IP = "eip";
-
-    // Return true if reg is a real gpr, and false if it is an abstract register
-    static bool isRealRegister(std::string reg);
-
-    // Instructions
-    static std::string Comment(std::string text) {
-        return "; " + text;
+struct Mov : public AssemblyCommon {
+    Mov(Operand dest, Operand src) {
+        useOperands(dest.write(), src.read());
     }
 
-    static std::string Label(std::string name) {
-        return name + ":";
-    }
-
-    static std::string SysCall() {
-        return "int 0x80";
-    }
-
-    static std::string ExternSymbol(std::string arg) {
-        return "extern " + arg;
-    }
-
-    static std::string GlobalSymbol(std::string arg) {
-        return "global " + arg;
-    }
-
-    static std::string Jump(std::string target) {
-        return "jmp " + target;
-    }
-
-    static std::string Je(std::string target) {
-        return "je " + target;
-    }
-
-    static std::string JumpIfNZ(std::string target) {
-        return "jnz " + target;
-    }
-
-    static std::string Mov(std::string target, std::string source) {
-        return "mov " + target + ", " + source;
-    }
-    static std::string Mov(std::string target, int source) {
-        return Mov(target, std::to_string(source));
-    }
-
-    static std::string Lea(std::string target, std::string source) {
-        return "lea " + target + ", " + source;
-    }
-
-    static std::string Add(std::string target, std::string arg2) {
-        return "add " + target + ", " + arg2;
-    }
-    static std::string Add(std::string target, int arg2) {
-        return Add(target, std::to_string(arg2));
-    }
-
-    static std::string Sub(std::string target, std::string arg2) {
-        return "sub " + target + ", " + arg2;
-    }
-    static std::string Sub(std::string target, int arg2) {
-        return Sub(target, std::to_string(arg2));
-    }
-
-    static std::string IMul(std::string multiplicand) {
-        return "imul " + multiplicand;
-    }
-
-    static std::string IDiv(std::string divisor) {
-        return "idiv " + divisor;
-    }
-
-    static std::string Xor(std::string destination, std::string other) {
-        return "xor " + destination + ", " + other;
-    }
-
-    static std::string And(std::string destination, std::string mask) {
-        return "and " + destination + ", " + mask;
-    }
-
-    static std::string Or(std::string destination, std::string addend) {
-        return "or " + destination + ", " + addend;
-    }
-
-    static std::string SetZ(std::string destination) {
-        return "setz " + destination;
-    }
-
-    static std::string SetNZ(std::string destination) {
-        return "setnz " + destination;
-    }
-
-    static std::string SetL(std::string destination) {
-        return "setl " + destination;
-    }
-
-    static std::string SetG(std::string destination) {
-        return "setg " + destination;
-    }
-
-    static std::string SetLE(std::string destination) {
-        return "setle " + destination;
-    }
-
-    static std::string SetGE(std::string destination) {
-        return "setge " + destination;
-    }
-
-    static std::string MovZX(std::string destination, std::string arg) {
-        return "movzx " + destination + ", " + arg;
-    }
-
-    static std::string Cmp(std::string arg1, std::string arg2) {
-        return "cmp " + arg1 + ", " + arg2;
-    }
-
-    static std::string Test(std::string arg1, std::string arg2) {
-        return "test " + arg1 + ", " + arg2;
-    }
-
-    static std::string Ret(unsigned int bytes = 0) {
-        return bytes > 0 ? "ret " + std::to_string(bytes) : "ret";
-    }
-
-    static std::string Push(std::string arg) {
-        return "push " + arg;
-    }
-
-    static std::string Pop(std::string arg) {
-        return "pop " + arg;
-    }
-
-    static std::string Call(std::string arg) {
-        return "call " + arg;
-    }
-
-    static std::string Cdq() {
-        return "cdq";
-    }
-
-    // Other helpers
-
-    // Create [base + (index * scale) + displacement] effective address
-    static std::string MakeAddress(
-        std::string base_register, 
-        std::string index_register = "",
-        int scale = 1,
-        int displacement = 0
-    );
-
-    static std::string LineBreak(int how_many=1) {
-        std::string result = "";
-        for (int i = 1; i < how_many; ++i) result += "\n";
-        return result;
+    std::string toString() {
+        return "mov " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
+
+struct Jump : public AssemblyCommon {
+    Jump(Operand target) {
+        useOperands(target.read());
+    }
+
+    std::string toString() {
+        return "jmp " + getOp(1).toString();
+    }
+};
+
+struct Je : public AssemblyCommon {
+    Je(Operand target) {
+        useOperands(target.read());
+    }
+
+    std::string toString() {
+        return "je " + getOp(1).toString();
+    }
+};
+
+struct JumpIfNZ : public AssemblyCommon {
+    JumpIfNZ(Operand target) {
+        useOperands(target.read());
+    }
+
+    std::string toString() {
+        return "jnz " + getOp(1).toString();
+    }
+};
+
+struct Lea : public AssemblyCommon {
+    Lea(Operand dest, Operand src) {
+        useOperands(dest.write(), src.read());
+
+        if (!std::get_if<EffectiveAddress>(&src)) {
+            THROW_CompilerError("Lea source must be effective address!");
+        }
+    }
+
+    std::string toString() {
+        return "lea " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Add : public AssemblyCommon {
+    Add(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
+    }
+
+    std::string toString() {
+        return "add " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Sub : public AssemblyCommon {
+    Sub(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
+    }
+
+    std::string toString() {
+        return "sub " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Xor : public AssemblyCommon {
+    Xor(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
+    }
+
+    std::string toString() {
+        return "xor " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct And : public AssemblyCommon {
+    And(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
+    }
+
+    std::string toString() {
+        return "and " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Or : public AssemblyCommon {
+    Or(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
+    }
+
+    std::string toString() {
+        return "or " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct MovZX : public AssemblyCommon {
+    MovZX(Operand arg1, Operand arg2) {
+        useOperands(arg1.write(), arg2.read());
+    }
+
+    std::string toString() {
+        return "movzx " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Cmp : public AssemblyCommon {
+    Cmp(Operand arg1, Operand arg2) {
+        useOperands(arg1.read(), arg2.read());
+    }
+
+    std::string toString() {
+        return "cmp " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Test : public AssemblyCommon {
+    Test(Operand arg1, Operand arg2) {
+        useOperands(arg1.read(), arg2.read());
+    }
+
+    std::string toString() {
+        return "test " + getOp(1).toString() + ", " + getOp(2).toString();
+    }
+};
+
+struct Push : public AssemblyCommon {
+    Push(Operand arg) {
+        useOperands(arg.read());
+    }
+
+    std::string toString() {
+        return "push " + getOp(1).toString();
+    }
+};
+
+struct Pop : public AssemblyCommon {
+    Pop(Operand arg) {
+        useOperands(arg.write());
+    }
+
+    std::string toString() {
+        return "pop " + getOp(1).toString();
+    }
+};
+
+/* Instructions without operands */
+
+struct NoOperandInstruction : public AssemblyCommon {
+    std::string static_instruction;
+
+    NoOperandInstruction(std::string static_instruction) : static_instruction{static_instruction} {}
+
+    std::string toString() {
+        return static_instruction;
+    }
+};
+
+struct Cdq : public NoOperandInstruction {
+    Cdq() : NoOperandInstruction{"cdq"} {}
+};
+
+struct Ret : public NoOperandInstruction {
+    Ret(unsigned int bytes = 0) 
+        : NoOperandInstruction{bytes > 0 ? "ret " + std::to_string(bytes) : "ret"} 
+    {}
+};
+
+struct Call : public NoOperandInstruction {
+    Call(std::string static_label) 
+        : NoOperandInstruction{"call " + static_label} 
+    {
+        writeRealRegisters(REG32_ACCUM);
+    }
+};
+
+struct SysCall : public NoOperandInstruction {
+    SysCall() 
+        : NoOperandInstruction{"int 0x80"} 
+    {
+        readRealRegisters(REG32_ACCUM, REG32_BASE);
+    }
+};
+
+struct Comment : public NoOperandInstruction {
+    Comment(std::string text) 
+        : NoOperandInstruction{"; " + text} 
+    {}
+};
+
+struct Label : public NoOperandInstruction {
+    Label(std::string label) 
+        : NoOperandInstruction{label + ":"} 
+    {}
+};
+
+struct GlobalSymbol : public NoOperandInstruction {
+    GlobalSymbol(std::string symbol) 
+        : NoOperandInstruction{"global " + symbol} 
+    {}
+};
+
+struct ExternSymbol : public NoOperandInstruction {
+    ExternSymbol(std::string symbol) 
+        : NoOperandInstruction{"extern " + symbol} 
+    {}
+};
+
+struct LineBreak : public NoOperandInstruction {
+    LineBreak() 
+        : NoOperandInstruction{""} 
+    {}
+};
+
+/* SetX instructions which set destination to 1 or 0 based on flags from Cmp */
+
+struct BoolSetInstruction : public AssemblyCommon {
+    std::string instruction_name;
+
+    BoolSetInstruction(std::string name, Operand dest) 
+        : instruction_name{name}
+    {
+        useOperands(dest.write());
+    }
+
+    std::string toString() {
+        return instruction_name + " " + getOp(1).toString();
+    }
+};
+
+struct SetZ : public BoolSetInstruction {
+    SetZ(Operand dest) : BoolSetInstruction{"setz", dest} {}
+};
+
+struct SetNZ : public BoolSetInstruction {
+    SetNZ(Operand dest) : BoolSetInstruction{"setnz", dest} {}
+};
+
+struct SetL : public BoolSetInstruction {
+    SetL(Operand dest) : BoolSetInstruction{"setl", dest} {}
+};
+
+struct SetG : public BoolSetInstruction {
+    SetG(Operand dest) : BoolSetInstruction{"setg", dest} {}
+};
+
+struct SetLE : public BoolSetInstruction {
+    SetLE(Operand dest) : BoolSetInstruction{"setle", dest} {}
+};
+
+struct SetGE : public BoolSetInstruction {
+    SetGE(Operand dest) : BoolSetInstruction{"setge", dest} {}
+};
+
+/* IMul/IDiv */
+
+struct IMul : public AssemblyCommon {
+    IMul(Operand multiplicand) {
+        useOperands(multiplicand.read());
+
+        readRealRegisters(REG32_ACCUM);
+        readRealRegisters(REG32_DATA);
+        
+        writeRealRegisters(REG32_ACCUM);
+        writeRealRegisters(REG32_DATA);
+    }
+
+    std::string toString() {
+        return "imul " + getOp(1).toString();
+    }
+};
+
+struct IDiv : public AssemblyCommon {
+    IDiv(Operand divisor) {
+        useOperands(divisor.read());
+        
+        readRealRegisters(REG32_ACCUM);
+        readRealRegisters(REG32_DATA);
+
+        writeRealRegisters(REG32_ACCUM);
+        writeRealRegisters(REG32_DATA);
+    }
+
+    std::string toString() {
+        return "idiv " + getOp(1).toString();
+    }
+};
+
+}; // namespace Assembly

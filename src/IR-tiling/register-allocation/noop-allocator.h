@@ -6,5 +6,5 @@
 class NoopRegisterAllocator : public RegisterAllocator {
 
   public:
-    int32_t allocateRegisters(Tile* function_body) override { return 0; }
+    int32_t allocateRegisters(std::list<AssemblyInstruction>& function_body) override { return 0; }
 };

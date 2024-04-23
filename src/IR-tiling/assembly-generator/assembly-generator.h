@@ -8,15 +8,19 @@
 
 #include "IR/ir.h"
 #include "IR/ir_visitor.h"
-#include "IR-tiling/assembly/assembly.h"
 #include "utillities/overload.h"
 #include "IR-tiling/tiling/ir-tiling.h"
 
 #include "IR-tiling/register-allocation/brainless-allocator.h"
 #include "IR-tiling/register-allocation/noop-allocator.h"
 
+#include "IR-tiling/assembly/assembly.h"
+#include "IR-tiling/assembly/registers.h"
+
 #define USED_REG_ALLOCATOR BrainlessRegisterAllocator
 // #define USED_REG_ALLOCATOR NoopRegisterAllocator
+
+using namespace Assembly;
 
 // Find methods/static fields from other compilation units that need to be linked to the assembly file for this cu
 class DependencyFinder : public IRSkipVisitor {
@@ -67,17 +71,18 @@ class AssemblyGenerator {
 
     std::string makeFunctionPrologue(int32_t stack_size) {
         std::string output;
-        output += "\t" + Assembly::Push(Assembly::REG32_STACKBASEPTR) + "\n";
-        output += "\t" + Assembly::Mov(Assembly::REG32_STACKBASEPTR, Assembly::REG32_STACKPTR) + "\n";
-        output += "\t" + Assembly::Sub(Assembly::REG32_STACKPTR, 4 * stack_size) + "\n";
+        output += "\t" + Push(REG32_STACKBASEPTR).toString() + "\n";
+        output += "\t" + Mov(REG32_STACKBASEPTR, REG32_STACKPTR).toString() + "\n";
+        output += "\t" + Sub(REG32_STACKPTR, 4 * stack_size).toString() + "\n";
         return output;
     }
 
   public:
     void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method) {
-        std::vector<std::pair<std::string, Tile>> static_fields;
+        std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
         
         // Reset output directory
+        std::filesystem::create_directory("output");
         for (auto& path: std::filesystem::directory_iterator("output")) {
             std::filesystem::remove_all(path);
         }
@@ -90,8 +95,11 @@ class AssemblyGenerator {
                     // Get static fields to dump in .data section of entrypoint file later
                     for (auto& [field_name, field_initalizer] : cu.getCanonFieldList()) {
                         assert(field_initalizer);
+
                         auto tile = converter.tile(*field_initalizer);
-                        static_fields.emplace_back(field_name, *tile);
+                        auto instructions = tile->getFullInstructions();
+
+                        static_fields.emplace_back(field_name, std::move(instructions));
                     }
 
                     // Generate the assembly file for the compilation unit
@@ -100,33 +108,36 @@ class AssemblyGenerator {
 
                     // Export functions as global
                     for (auto& func : cu.getFunctionList()) {
-                        output_file << Assembly::GlobalSymbol(func->getName()) << "\n";
+                        output_file << GlobalSymbol(func->getName()).toString() << "\n";
                     }
                     output_file << "\n";
 
                     // Import required functions/static fields
                     auto dependency_finder = DependencyFinder(cu);
                     for (auto& req_func : dependency_finder.getRequiredFunctions()) {
-                        output_file << Assembly::ExternSymbol(req_func) << "\n";
+                        output_file << ExternSymbol(req_func).toString() << "\n";
                     }
                     for (auto& req_field : dependency_finder.getRequiredStaticFields()) {
-                        output_file << Assembly::ExternSymbol(req_field) << "\n";
+                        output_file << ExternSymbol(req_field).toString() << "\n";
                     }
                     output_file << "\n";
 
                     // Tile each method in the compilation unit
                     for (auto& func : cu.getFunctionList()) {
+                        // Tile and allocate registers
+                        StatementTile body_tile = converter.tile(func->getBody());
+                        auto body_instructions = body_tile->getFullInstructions();
+                        int32_t stack_size = USED_REG_ALLOCATOR().allocateRegisters(body_instructions);
+
                         // Function label
-                        output_file << Assembly::Label(func->getName()) << "\n";
+                        output_file << Label(func->getName()).toString() << "\n";
 
                         // Function prologue
-                        auto body_tile = converter.tile(func->getBody());
-                        int32_t stack_size = USED_REG_ALLOCATOR().allocateRegisters(body_tile);
                         output_file << makeFunctionPrologue(stack_size);
 
                         // Function body
-                        for (auto& body_instruction : body_tile->getFullInstructions()) {
-                            output_file << "\t" << body_instruction << "\n";
+                        for (auto& body_instruction : body_instructions) {
+                            output_file << "\t" << body_instruction.toString() << "\n";
                         }
                         output_file << "\n";
                     }
@@ -147,34 +158,42 @@ class AssemblyGenerator {
         << "section .text"                              << "\n\n";
 
         for (auto& [field_name, initalizer_tile] : static_fields) {
-            start_file << Assembly::GlobalSymbol(field_name) << "\n";
+            start_file << GlobalSymbol(field_name).toString() << "\n";
         }
         start_file 
-        << Assembly::GlobalSymbol("_start")             << "\n"
-        << Assembly::ExternSymbol("__exception")        << "\n"
-        << Assembly::ExternSymbol("__malloc")           << "\n"
-        << Assembly::ExternSymbol(entrypoint_method)    << "\n\n"
+        << GlobalSymbol("_start").toString()             << "\n"
+        << ExternSymbol("__exception").toString()        << "\n"
+        << ExternSymbol("__malloc").toString()           << "\n"
+        << ExternSymbol(entrypoint_method).toString()    << "\n\n"
 
-        << Assembly::Label("_start") << "\n"
-            << "\t" << Assembly::Comment("Initialize all the static fields of all the compilation units, in order") << "\n";
-            for (auto& [field_name, initalizer_tile] : static_fields) {
-                int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(&initalizer_tile);
+        << Label("_start").toString() << "\n"
+            << "\t" << Comment("Initialize all the static fields of all the compilation units, in order").toString() << "\n";
 
-                start_file << makeFunctionPrologue(stack_size_for_initializer);
-                for (auto &instr : initalizer_tile.getFullInstructions()) {
-                    start_file << "\t" << instr << "\n";
+            // Combine into one list of instructions
+            std::list<AssemblyInstruction> static_init;
+            for (auto& [field_name, initializer_instructions] : static_fields) {
+                for (auto& instr : initializer_instructions) {
+                    static_init.push_back(instr);
                 }
-
-                start_file << "\t" << Assembly::Mov(Assembly::REG32_STACKPTR, Assembly::REG32_STACKBASEPTR) << "\n";
-                start_file << "\t" << Assembly::Pop(Assembly::REG32_STACKBASEPTR) << "\n";
             }
+
+            // Initialize all, with the same stack frame
+            int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(static_init);
+
+            start_file << makeFunctionPrologue(stack_size_for_initializer);
+            for (auto &instr : static_init) {
+                start_file << "\t" << instr.toString() << "\n";
+            }
+
+            start_file << "\t" << Mov(REG32_STACKPTR, REG32_STACKBASEPTR).toString() << "\n";
+            start_file << "\t" << Pop(REG32_STACKBASEPTR).toString() << "\n";
             start_file << "\n"
 
-            << "\t" << Assembly::Comment("Call entrypoint method and execute exit() system call with return value in REG32_BASE") << "\n"
-            << "\t" << Assembly::Call(entrypoint_method)                            << "\n"
-            << "\t" << Assembly::Mov(Assembly::REG32_BASE, Assembly::REG32_ACCUM)   << "\n"
-            << "\t" << Assembly::Mov(Assembly::REG32_ACCUM, 1)                      << "\n"
-            << "\t" << Assembly::SysCall()                                          << "\n"
+            << "\t" << Comment("Call entrypoint method and execute exit() system call with return value in REG32_BASE").toString() << "\n"
+            << "\t" << Call(entrypoint_method).toString()        << "\n"
+            << "\t" << Mov(REG32_BASE, REG32_ACCUM).toString()   << "\n"
+            << "\t" << Mov(REG32_ACCUM, 1).toString()            << "\n"
+            << "\t" << SysCall().toString()                      << "\n"
         ;
     }
 };

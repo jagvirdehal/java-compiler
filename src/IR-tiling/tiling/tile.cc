@@ -34,8 +34,8 @@ int Tile::getCost() {
     return cost;
 }
 
-std::list<std::string> Tile::getFullInstructions() {
-    std::list<std::string> output;
+std::list<AssemblyInstruction> Tile::getFullInstructions() {
+    std::list<AssemblyInstruction> output;
 
     for (auto& instr : instructions) {
         std::visit(util::overload {
@@ -83,7 +83,7 @@ void Tile::assignAbstract(std::string reg) {
     for (auto& instr : this->instructions) {
         std::visit(util::overload {
             [&](AssemblyInstruction& asmb) {
-                asmb = std::regex_replace(asmb, std::regex(Tile::ABSTRACT_REG), reg);
+                asmb.replaceRegister(Tile::ABSTRACT_REG, reg);
             },
             [&](StatementTile tile) {},
             [&](ExpressionTile tile) {
