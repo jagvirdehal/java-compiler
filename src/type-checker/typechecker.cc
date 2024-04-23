@@ -712,10 +712,10 @@ void TypeChecker::operator()(FieldAccess &node) {
     FieldDeclarationObject* resolved_field = nullptr;
 
     // Type that the field is being accessed on
-    LinkedType object_type = getLink(node.expression);
+    node.type_accessed_on = getLink(node.expression);
 
     // If the type is an array, only length is accessible
-    if (object_type.is_array) {
+    if (node.type_accessed_on.is_array) {
         if (field_name == "length") {
             node.link = LinkedType(PrimitiveType::INT);
             node.identifier->is_array_length = true;
@@ -725,9 +725,9 @@ void TypeChecker::operator()(FieldAccess &node) {
     } else {
         resolved_field = checkIfFieldIsAccessible(
             current_class,
-            object_type.getIfNonArrayIsClass(),
+            node.type_accessed_on.getIfIsClass(),
             field_name,
-            object_type.not_expression
+            node.type_accessed_on.not_expression
         );
         if (resolved_field) {
             node.link = resolved_field->type;
@@ -737,7 +737,7 @@ void TypeChecker::operator()(FieldAccess &node) {
         }
     }
 
-    THROW_TypeCheckerError("No accessible field " + field_name + " in " + object_type.toSimpleString());
+    THROW_TypeCheckerError("No accessible field " + field_name + " in " + node.type_accessed_on.toSimpleString());
 }
 
 void TypeChecker::operator()(ArrayAccess &node) {
