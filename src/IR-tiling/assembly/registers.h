@@ -48,50 +48,49 @@ namespace Assembly {
     static const inline std::string REG32_IP = "eip";
 
     // Return true if reg is a real gpr, and false if it is an abstract register
+    static const inline std::unordered_set<std::string> assembly_ns_real_reg_set = {
+        REG8L_ACCUM,
+        REG8H_ACCUM,
+
+        REG8L_BASE,
+        REG8H_BASE,
+
+        REG8L_COUNTER,
+        REG8H_COUNTER,
+
+        REG8L_DATA,
+        REG8H_DATA,
+
+        REG8L_STACKPTR,
+        REG8L_STACKBASEPTR,
+
+        REG8L_SOURCE,
+        REG8L_DEST,
+
+        REG16_ACCUM,
+        REG16_BASE,
+        REG16_COUNTER,
+        REG16_DATA,
+
+        REG16_STACKPTR,
+        REG16_STACKBASEPTR,
+
+        REG16_SOURCE,
+        REG16_DEST,
+
+        REG32_ACCUM,
+        REG32_BASE,
+        REG32_COUNTER,
+        REG32_DATA,
+
+        REG32_STACKPTR,
+        REG32_STACKBASEPTR,
+
+        REG32_SOURCE,
+        REG32_DEST
+    };
     bool inline isRealRegister(std::string reg) {
-        std::unordered_set<std::string> set;
-
-        set.emplace(REG8L_ACCUM);
-        set.emplace(REG8H_ACCUM);
-
-        set.emplace(REG8L_BASE);
-        set.emplace(REG8H_BASE);
-
-        set.emplace(REG8L_COUNTER);
-        set.emplace(REG8H_COUNTER);
-
-        set.emplace(REG8L_DATA);
-        set.emplace(REG8H_DATA);
-
-        set.emplace(REG8L_STACKPTR);
-        set.emplace(REG8L_STACKBASEPTR);
-
-        set.emplace(REG8L_SOURCE);
-        set.emplace(REG8L_DEST);
-
-        set.emplace(REG16_ACCUM);
-        set.emplace(REG16_BASE);
-        set.emplace(REG16_COUNTER);
-        set.emplace(REG16_DATA);
-
-        set.emplace(REG16_STACKPTR);
-        set.emplace(REG16_STACKBASEPTR);
-
-        set.emplace(REG16_SOURCE);
-        set.emplace(REG16_DEST);
-
-        set.emplace(REG32_ACCUM);
-        set.emplace(REG32_BASE);
-        set.emplace(REG32_COUNTER);
-        set.emplace(REG32_DATA);
-
-        set.emplace(REG32_STACKPTR);
-        set.emplace(REG32_STACKBASEPTR);
-
-        set.emplace(REG32_SOURCE);
-        set.emplace(REG32_DEST);
-
-        return set.count(reg) ? true : false;
+        return assembly_ns_real_reg_set.count(reg) ? true : false;
     }
 
 }; // namespace Assembly
