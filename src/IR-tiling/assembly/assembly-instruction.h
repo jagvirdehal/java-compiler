@@ -41,21 +41,21 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
     using AssemblyInstructionInheritedVariant::AssemblyInstructionInheritedVariant;
     using AssemblyInstructionInheritedVariant::operator=;
 
-    std::unordered_set<std::string*>& getUsedRegisters() {
+    std::unordered_set<std::string> getUsedRegisters() {
         return std::visit(util::overload {
-            [&](auto &x) -> std::unordered_set<std::string*>& { return x.used_registers; }
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedRegisters(); }
         }, *this);
     }
 
-    std::unordered_set<std::string*>& getWriteRegisters() {
+    std::unordered_set<std::string> getWriteRegisters() {
         return std::visit(util::overload {
-            [&](auto &x) -> std::unordered_set<std::string*>& { return x.write_registers; }
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getWriteRegisters(); }
         }, *this);
     }
 
-    std::unordered_set<std::string*>& getReadRegisters() {
+    std::unordered_set<std::string> getReadRegisters() {
         return std::visit(util::overload {
-            [&](auto &x) -> std::unordered_set<std::string*>& { return x.read_registers; }
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getReadRegisters(); }
         }, *this);
     }
 

@@ -44,6 +44,26 @@ struct EffectiveAddress {
 struct Operand : public std::variant<EffectiveAddress, std::string, int32_t> {
     using variant::variant;
 
+    bool is_read = false;
+    bool is_write = false;
+
+    // Set the operands read/write status and return it
+    Operand& read() {
+        is_read = true;
+        return *this;
+    }
+
+    Operand& write() {
+        is_write = true;
+        return *this;
+    }
+
+    Operand& readwrite() {
+        is_read = true;
+        is_write = true;
+        return *this;
+    }
+
     std::string toString() {
         return std::visit(util::overload {
             [&](EffectiveAddress &adr) { return adr.toString(); },
@@ -55,57 +75,110 @@ struct Operand : public std::variant<EffectiveAddress, std::string, int32_t> {
 
 class AssemblyCommon {
 
-    template<typename... OperandType>
-    void useOperands(std::unordered_set<std::string*> &target_set, OperandType&... operands) {
-        auto process_op = [&](Operand &op){
-            used_operands.insert(&op);
-            std::visit(util::overload {
-                [&](EffectiveAddress &adr) { 
-                    // In a memory access calculated using the values of registers,
-                    // registers are always read, but they themselves are not written to
-                    if (adr.base_register != EffectiveAddress::EMPTY_REG) {
-                        read_registers.insert(&adr.base_register);
-                        used_registers.insert(&adr.index_register);
-                    }
-                    if (adr.index_register != EffectiveAddress::EMPTY_REG) {
-                        read_registers.insert(&adr.index_register);
-                        used_registers.insert(&adr.index_register);
-                    }
-                },
-                [&](std::string &reg) { 
-                    target_set.insert(&reg);
-                    used_registers.insert(&reg);
-                },
-                [&](int32_t immediate) {}
-            }, op);
-        };
-
-        (process_op(operands), ...);
-    }
+    std::vector<Operand> operands; // Used operands
 
   protected:
     template<typename... OperandType>
-    void useWriteOperands(OperandType&... operands) {
-        useOperands(write_registers, operands...);
+    void useOperands(OperandType&... operands) {
+        (this->operands.push_back(operands), ...);
     }
 
-    template<typename... OperandType>
-    void useReadOperands(OperandType&... operands) {
-        useOperands(read_registers, operands...);
+    // Get the index'th op (indexed starting at 1)
+    Operand& getOp(size_t index) {
+        if (index > operands.size()) {
+            THROW_CompilerError("Attempted to get operand out of range");
+        }
+        return operands[index - 1];
     }
 
   public:
     void replaceRegister(std::string original_register, std::string new_register) {
-        for (auto used_reg : used_registers) {
-            if (*used_reg == original_register) {
-                *used_reg = new_register;
-            }
+        for (auto& operand : operands) {
+            // Replace any register equal to the original register in each operand
+            std::visit(util::overload {
+                [&](EffectiveAddress& adr) {
+                    if (adr.index_register == original_register) {
+                        adr.index_register = new_register;
+                    }
+                    if (adr.base_register == original_register) {
+                        adr.base_register = original_register;
+                    }
+                },
+                [&](std::string& reg) {
+                    if (reg == original_register) {
+                        reg = new_register;
+                    }
+                },
+                [&](int32_t) {}
+            }, operand);
         }
     }
 
-    std::unordered_set<Operand*> used_operands;         // Used operands
-    std::unordered_set<std::string*> used_registers;    // Used (real or abstract) registers
+    std::unordered_set<std::string> getReadRegisters() {
+        std::unordered_set<std::string> result;
 
-    std::unordered_set<std::string*> write_registers;   // Subset of used_registers that gets written (needs to be stored if on stack)
-    std::unordered_set<std::string*> read_registers;    // Subset of used_registers that gets read (needs to be loaded if on stack)
+        for (auto& operand : operands) {
+            std::visit(util::overload {
+                [&](EffectiveAddress& adr) {
+                    // Registers used in an effective address are always read, even if the operand itself isn't
+                    if (adr.index_register != EffectiveAddress::EMPTY_REG) {
+                        result.insert(adr.index_register);
+                    }
+                    if (adr.base_register != EffectiveAddress::EMPTY_REG) {
+                        result.insert(adr.base_register);
+                    }
+                },
+                [&](std::string& reg) {
+                    if (operand.is_read) {
+                        result.insert(reg);
+                    }
+                },
+                [&](int32_t) {}
+            }, operand);
+        }
+
+        return std::move(result);
+    }
+
+    std::unordered_set<std::string> getWriteRegisters() {
+        std::unordered_set<std::string> result;
+
+        for (auto& operand : operands) {
+            std::visit(util::overload {
+                [&](EffectiveAddress& adr) {},
+                [&](std::string& reg) {
+                    if (operand.is_write) {
+                        result.insert(reg);
+                    }
+                },
+                [&](int32_t) {}
+            }, operand);
+        }
+
+        return std::move(result);
+    }
+
+    std::unordered_set<std::string> getUsedRegisters() {
+        std::unordered_set<std::string> result;
+
+        for (auto& operand : operands) {
+            std::visit(util::overload {
+                [&](EffectiveAddress& adr) {
+                    if (adr.index_register != EffectiveAddress::EMPTY_REG) {
+                        result.insert(adr.index_register);
+                    }
+                    if (adr.base_register != EffectiveAddress::EMPTY_REG) {
+                        result.insert(adr.base_register);
+                    }
+                },
+                [&](std::string& reg) {
+                    result.insert(reg);
+                },
+                [&](int32_t) {}
+            }, operand);
+        }
+
+        return std::move(result);
+    }
+
 };

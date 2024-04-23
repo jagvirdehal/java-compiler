@@ -14,10 +14,10 @@ std::vector<std::string> BrainlessRegisterAllocator::instruction_registers
 
 void BrainlessRegisterAllocator::findOffsets(std::list<AssemblyInstruction>& function_body) {
     for (auto& instr : function_body) {
-        for (auto reg : instr.getUsedRegisters()) {
+        for (auto& reg : instr.getUsedRegisters()) {
             // Assign an offset to every abstract register used that hasn't been assigned one yet
-            if (!isRealRegister(*reg) && !reg_offsets.count(*reg)) {
-                reg_offsets[*reg] = stack_offset;
+            if (!isRealRegister(reg) && !reg_offsets.count(reg)) {
+                reg_offsets[reg] = stack_offset;
                 stack_offset += 4;
             }
         }
@@ -50,7 +50,7 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     // Each x86 instruction can use at most 3 registers; just asserting this is true
     if (instruction.getUsedRegisters().size() > 3) {
         std::string found_registers = "";
-        for (auto reg : instruction.getUsedRegisters()) found_registers += " " + *reg;
+        for (auto& reg : instruction.getUsedRegisters()) found_registers += " " + reg;
         THROW_CompilerError(
             "x86 instruction using more than 3 registers? Something is wrong.\n"
             "Instruction: " + instruction.toString() + "\n"
@@ -62,17 +62,17 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     size_t next_real_reg = 0;
     std::unordered_map<std::string, std::string> abstract_to_real;
 
-    for (auto reg : instruction.getUsedRegisters()) {
-        if (!isRealRegister(*reg)) {
-            abstract_to_real[*reg] = instruction_registers[next_real_reg++];
-            instruction.replaceRegister(*reg, abstract_to_real[*reg]);
+    for (auto& reg : instruction.getUsedRegisters()) {
+        if (!isRealRegister(reg)) {
+            abstract_to_real[reg] = instruction_registers[next_real_reg++];
+            instruction.replaceRegister(reg, abstract_to_real[reg]);
         }
     }
 
     // Add a load instruction for each abstract register the instruction reads
-    for (auto reg : instruction.getReadRegisters()) {
-        if (!isRealRegister(*reg)) {
-            target.emplace_back(loadAbstractRegister(abstract_to_real[*reg], *reg));
+    for (auto& reg : instruction.getReadRegisters()) {
+        if (!isRealRegister(reg)) {
+            target.emplace_back(loadAbstractRegister(abstract_to_real[reg], reg));
         }
     }
 
@@ -80,9 +80,9 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     target.emplace_back(std::move(instruction));
 
     // Add a store instruction for each abstract register the instruction writes
-    for (auto reg : instruction.getWriteRegisters()) {
-        if (!isRealRegister(*reg)) {
-            target.emplace_back(storeAbstractRegister(*reg, abstract_to_real[*reg]));
+    for (auto& reg : instruction.getWriteRegisters()) {
+        if (!isRealRegister(reg)) {
+            target.emplace_back(storeAbstractRegister(reg, abstract_to_real[reg]));
         }
     }
 }  

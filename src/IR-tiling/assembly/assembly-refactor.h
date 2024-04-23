@@ -13,60 +13,48 @@ namespace AssemblyRefactor {
 /* Assorted instructions */
 
 struct Mov : public AssemblyCommon {
-    Operand dest, source;
-
-    Mov(Operand dest, Operand src) : dest{dest}, source{src} {
-        useWriteOperands(this->dest);
-        useReadOperands(this->source);
+    Mov(Operand dest, Operand src) {
+        useOperands(dest.write(), src.read());
     }
 
     std::string toString() {
-        return "mov " + dest.toString() + ", " + source.toString();
+        return "mov " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Jump : public AssemblyCommon {
-    Operand target;
-
-    Jump(Operand target) : target{target} {
-        useReadOperands(this->target);
+    Jump(Operand target) {
+        useOperands(target.read());
     }
 
     std::string toString() {
-        return "jmp " + target.toString();
+        return "jmp " + getOp(1).toString();
     }
 };
 
 struct Je : public AssemblyCommon {
-    Operand target;
-
-    Je(Operand target) : target{target} {
-        useReadOperands(this->target);
+    Je(Operand target) {
+        useOperands(target.read());
     }
 
     std::string toString() {
-        return "je " + target.toString();
+        return "je " + getOp(1).toString();
     }
 };
 
 struct JumpIfNZ : public AssemblyCommon {
-    Operand target;
-
-    JumpIfNZ(Operand target) : target{target} {
-        useReadOperands(this->target);
+    JumpIfNZ(Operand target) {
+        useOperands(target.read());
     }
 
     std::string toString() {
-        return "jnz " + target.toString();
+        return "jnz " + getOp(1).toString();
     }
 };
 
 struct Lea : public AssemblyCommon {
-    Operand dest, source;
-
-    Lea(Operand dest, Operand src) : dest{dest}, source{src} {
-        useWriteOperands(this->dest);
-        useReadOperands(this->source);
+    Lea(Operand dest, Operand src) {
+        useOperands(dest.write(), src.read());
 
         if (!std::get_if<EffectiveAddress>(&src)) {
             THROW_CompilerError("Lea source must be effective address!");
@@ -74,133 +62,107 @@ struct Lea : public AssemblyCommon {
     }
 
     std::string toString() {
-        return "lea " + dest.toString() + ", " + source.toString();
+        return "lea " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Add : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Add(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg1, this->arg2);
+    Add(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
     }
 
     std::string toString() {
-        return "add " + arg1.toString() + ", " + arg2.toString();
+        return "add " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Sub : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Sub(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg1, this->arg2);
+    Sub(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
     }
 
     std::string toString() {
-        return "sub " + arg1.toString() + ", " + arg2.toString();
+        return "sub " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Xor : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Xor(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg1, this->arg2);
+    Xor(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
     }
 
     std::string toString() {
-        return "xor " + arg1.toString() + ", " + arg2.toString();
+        return "xor " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct And : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    And(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg1, this->arg2);
+    And(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
     }
 
     std::string toString() {
-        return "and " + arg1.toString() + ", " + arg2.toString();
+        return "and " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Or : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Or(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg1, this->arg2);
+    Or(Operand arg1, Operand arg2) {
+        useOperands(arg1.readwrite(), arg2.read());
     }
 
     std::string toString() {
-        return "or " + arg1.toString() + ", " + arg2.toString();
+        return "or " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct MovZX : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    MovZX(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useWriteOperands(this->arg1);
-        useReadOperands(this->arg2);
+    MovZX(Operand arg1, Operand arg2) {
+        useOperands(arg1.write(), arg2.read());
     }
 
     std::string toString() {
-        return "movzx " + arg1.toString() + ", " + arg2.toString();
+        return "movzx " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Cmp : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Cmp(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useReadOperands(this->arg1, this->arg2);
+    Cmp(Operand arg1, Operand arg2) {
+        useOperands(arg1.read(), arg2.read());
     }
 
     std::string toString() {
-        return "cmp " + arg1.toString() + ", " + arg2.toString();
+        return "cmp " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Test : public AssemblyCommon {
-    Operand arg1, arg2;
-
-    Test(Operand arg1, Operand arg2) : arg1{arg1}, arg2{arg2} {
-        useReadOperands(this->arg1, this->arg2);
+    Test(Operand arg1, Operand arg2) {
+        useOperands(arg1.read(), arg2.read());
     }
 
     std::string toString() {
-        return "test " + arg1.toString() + ", " + arg2.toString();
+        return "test " + getOp(1).toString() + ", " + getOp(2).toString();
     }
 };
 
 struct Push : public AssemblyCommon {
-    Operand arg;
-
-    Push(Operand arg) : arg{arg} {
-        useReadOperands(this->arg);
+    Push(Operand arg) {
+        useOperands(arg.read());
     }
 
     std::string toString() {
-        return "push " + arg.toString();
+        return "push " + getOp(1).toString();
     }
 };
 
 struct Pop : public AssemblyCommon {
-    Operand arg;
-
-    Pop(Operand arg) : arg{arg} {
-        useWriteOperands(this->arg);
+    Pop(Operand arg) {
+        useOperands(arg.write());
     }
 
     std::string toString() {
-        return "pop " + arg.toString();
+        return "pop " + getOp(1).toString();
     }
 };
 
@@ -266,16 +228,15 @@ struct ExternSymbol : public NoOperandInstruction {
 
 struct BoolSetInstruction : public AssemblyCommon {
     std::string instruction_name;
-    Operand dest;
 
     BoolSetInstruction(std::string name, Operand dest) 
-        : instruction_name{name}, dest{dest} 
+        : instruction_name{name}
     {
-        useWriteOperands(this->dest);
+        useOperands(dest.write());
     }
 
     std::string toString() {
-        return instruction_name + " " + dest.toString();
+        return instruction_name + " " + getOp(1).toString();
     }
 };
 
@@ -306,26 +267,22 @@ struct SetGE : public BoolSetInstruction {
 /* IMul/IDiv */
 
 struct IMul : public AssemblyCommon {
-    Operand multiplicand;
-
-    IMul(Operand multiplicand) : multiplicand{multiplicand} {
-        useReadOperands(this->multiplicand);
+    IMul(Operand multiplicand) {
+        useOperands(multiplicand.read());
     }
 
     std::string toString() {
-        return "imul " + multiplicand.toString();
+        return "imul " + getOp(1).toString();
     }
 };
 
 struct IDiv : public AssemblyCommon {
-    Operand divisor;
-
-    IDiv(Operand divisor) : divisor{divisor} {
-        useReadOperands(this->divisor);
+    IDiv(Operand divisor) {
+        useOperands(divisor.read());
     }
 
     std::string toString() {
-        return "idiv " + divisor.toString();
+        return "idiv " + getOp(1).toString();
     }
 };
 
