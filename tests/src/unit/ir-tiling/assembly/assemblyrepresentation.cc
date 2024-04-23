@@ -60,7 +60,10 @@ TEST(BrainlessRegisterAllocator, allocatescorrectly) {
 
     BrainlessRegisterAllocator allocator;
 
-    std::list<AssemblyInstruction> instrs = {Lea("eax", EffectiveAddress("%REGABS1%"))};
+    std::list<AssemblyInstruction> instrs = {
+        Mov("%REGABS1%", 123),
+        Lea("eax", EffectiveAddress("%REGABS1%"))
+    };
 
     allocator.allocateRegisters(instrs);
 
