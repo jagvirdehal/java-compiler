@@ -330,14 +330,153 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
     } else if ( auto lit = std::get_if<string>(&expr) ) {
         // string
         string value = *lit;
+
+        // Get the java.lang.String class
+        auto string_class = Util::root_package->getJavaLangString();
         vector<unique_ptr<StatementIR>> seq_vec;
 
-        seq_vec.push_back(...);
-        seq_vec.push_back(...);
-        seq_vec.push_back(...);
-        seq_vec.push_back(...);
+        // Get the dispatch vector of that class
+        DV string_dv = DVBuilder::getDV(string_class);
+        int num_fields = string_dv.field_vector.size();
 
-        return ESeqIR::makeExpr(SeqIR::makeStmt(seq_vec), /* ref to string obj */);
+        // Create the string reference, -> this will be returned as the result
+        std::string string_ref = TempIR::generateName("string_ref");
+
+        // Allocate space for class -> point the string reference to the newly allocated memory
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(string_ref),
+                CallIR::makeMalloc(ConstIR::makeExpr(4 * (num_fields + 1)))
+            )
+        );
+
+        // Write dispatch vector to first loc
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(string_ref)),
+                // Location of dispatch vector
+                TempIR::makeExpr(CGConstants::uniqueClassLabel(string_class), true)
+            )
+        );
+
+        // Initialize all fields
+        for ( int i = 0; i < num_fields; i++ ) {
+            unique_ptr<ExpressionIR> init_expr;
+            if ( auto &field_expr = string_dv.field_vector[i]->ast_reference->variable_declarator->expression ) {
+                init_expr = convert(*field_expr);
+            } else {
+                init_expr = ConstIR::makeZero();
+            }
+
+            seq_vec.push_back(
+                MoveIR::makeStmt(
+                    MemIR::makeExpr(BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(string_ref),
+                        ConstIR::makeWords(i + 1)
+                    )),
+                    std::move(init_expr)
+                )
+            );
+        }
+
+        // Create arg vector
+        vector<unique_ptr<ExpressionIR>> arg_vec;
+
+        // Get the zero arg constructor for the string class
+        MethodDeclarationObject* string_constructor_no_arguments = nullptr;
+        for ( auto &method : string_class->method_list ) {
+            if ( method->is_constructor && method->getParameters().size() == 0 ) {
+                string_constructor_no_arguments = method;
+                break;
+            }
+        }
+
+        // Make sure we found the required constructor
+        assert(string_constructor_no_arguments);
+
+        // Call constructor
+        seq_vec.push_back(
+            ExpIR::makeStmt(
+                CallIR::makeExpr(
+                    NameIR::makeExpr(CGConstants::uniqueMethodLabel(string_constructor_no_arguments)),
+                    TempIR::makeExpr(string_ref),
+                    std::move(arg_vec)
+                )
+            )
+        );
+
+        // Get the field declaration object for the "chars" field (this is where the actual string is stored)
+        auto field = string_class->accessible_fields["chars"];
+        // Get the field offset of that object
+        int fieldOffset = string_dv.getFieldOffset(field);
+
+        // Create a reference to that part of memory
+        std::string chars_ref = TempIR::generateName("chars_ref");
+        
+        // Move nmemory location of chars into chars ref
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(chars_ref),
+                MemIR::makeExpr( // We might not need this MemIR here, we are not access memory, just getting memory LOCATION
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(string_ref),
+                        ConstIR::makeWords(fieldOffset)
+                    )
+                )
+            )
+        );
+
+        // Resize the chars field in the string to 4 * sizeof value + 8
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(chars_ref),
+                CallIR::makeMalloc(ConstIR::makeExpr(4 * value.size() + 8))
+            )
+        );
+
+        // Write size
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(chars_ref),
+                ConstIR::makeExpr(value.size())
+            )
+        );
+
+        // Attach array DV
+        auto array_obj = Util::root_package->getJavaUtilArrays();
+        seq_vec.push_back(
+            // MEM(arr + 4) = DV for arrays
+            MoveIR::makeStmt(
+                MemIR::makeExpr(BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(chars_ref),
+                    ConstIR::makeWords()
+                )),
+                TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
+            )
+        );
+
+        // Initialize the new chars array, starting at MEM[arr + 8]
+        for (int i = 0; i < value.length(); i++) {
+            char c = value[i];
+            seq_vec.push_back(
+                MoveIR::makeStmt(
+                    MemIR::makeExpr(BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(chars_ref),
+                        ConstIR::makeWords(i + 2)
+                    )),
+                    ConstIR::makeExpr(c)
+                )
+            );
+        }
+
+        return ESeqIR::makeExpr(
+            SeqIR::makeStmt(std::move(seq_vec)), 
+            TempIR::makeExpr(string_ref)
+        );
     } else if ( auto lit = std::get_if<nullptr_t>(&expr) ) {
         // nullptr_t
         return ConstIR::makeZero();
