@@ -224,6 +224,12 @@ struct ExternSymbol : public NoOperandInstruction {
     {}
 };
 
+struct LineBreak : public NoOperandInstruction {
+    LineBreak() 
+        : NoOperandInstruction{""} 
+    {}
+};
+
 /* SetX instructions which set destination to 1 or 0 based on flags from Cmp */
 
 struct BoolSetInstruction : public AssemblyCommon {

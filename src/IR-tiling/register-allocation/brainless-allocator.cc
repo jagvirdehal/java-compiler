@@ -54,6 +54,8 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     auto read_registers = instruction.getReadRegisters();
     auto write_registers = instruction.getWriteRegisters();
 
+    target.push_back(LineBreak());
+
     // Each x86 instruction can use at most 3 registers; just asserting this is true
     if (used_registers.size() > 3) {
         std::string found_registers = "";
@@ -69,7 +71,7 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     size_t next_real_reg = 0;
     std::unordered_map<std::string, std::string> abstract_to_real;
 
-    for (auto& reg : instruction.getUsedRegisters()) {
+    for (auto& reg : used_registers) {
         if (!isRealRegister(reg)) {
             abstract_to_real[reg] = instruction_registers[next_real_reg++];
             instruction.replaceRegister(reg, abstract_to_real[reg]);
@@ -85,7 +87,7 @@ void BrainlessRegisterAllocator::replaceAbstracts(AssemblyInstruction& instructi
     }
 
     // Add the original instruction, now modified to use real registers
-    instruction.tagWithComment(original_instruction_text);
+    if (next_real_reg > 0) instruction.tagWithComment(original_instruction_text); // Tag if we did replacement
     target.push_back(instruction);
 
     // Add a store instruction for each abstract register the instruction writes

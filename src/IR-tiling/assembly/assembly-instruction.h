@@ -34,7 +34,8 @@ using AssemblyInstructionInheritedVariant = std::variant<
     AssemblyRefactor::IMul,
     AssemblyRefactor::IDiv,
     AssemblyRefactor::Comment,
-    AssemblyRefactor::Label
+    AssemblyRefactor::Label,
+    AssemblyRefactor::LineBreak
 >;
 
 struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {

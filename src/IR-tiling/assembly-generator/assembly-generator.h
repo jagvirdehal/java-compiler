@@ -167,17 +167,25 @@ class AssemblyGenerator {
 
         << Label("_start").toString() << "\n"
             << "\t" << Comment("Initialize all the static fields of all the compilation units, in order").toString() << "\n";
+
+            // Combine into one list of instructions
+            std::list<AssemblyInstruction> static_init;
             for (auto& [field_name, initializer_instructions] : static_fields) {
-                int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(initializer_instructions);
-
-                start_file << makeFunctionPrologue(stack_size_for_initializer);
-                for (auto &instr : initializer_instructions) {
-                    start_file << "\t" << instr.toString() << "\n";
+                for (auto& instr : initializer_instructions) {
+                    static_init.push_back(instr);
                 }
-
-                start_file << "\t" << Mov(REG32_STACKPTR, REG32_STACKBASEPTR).toString() << "\n";
-                start_file << "\t" << Pop(REG32_STACKBASEPTR).toString() << "\n";
             }
+
+            // Initialize all, with the same stack frame
+            int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(static_init);
+
+            start_file << makeFunctionPrologue(stack_size_for_initializer);
+            for (auto &instr : static_init) {
+                start_file << "\t" << instr.toString() << "\n";
+            }
+
+            start_file << "\t" << Mov(REG32_STACKPTR, REG32_STACKBASEPTR).toString() << "\n";
+            start_file << "\t" << Pop(REG32_STACKBASEPTR).toString() << "\n";
             start_file << "\n"
 
             << "\t" << Comment("Call entrypoint method and execute exit() system call with return value in REG32_BASE").toString() << "\n"
