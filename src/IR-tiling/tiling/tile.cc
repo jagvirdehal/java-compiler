@@ -34,13 +34,13 @@ int Tile::getCost() {
     return cost;
 }
 
-std::list<std::string> Tile::getFullInstructions() {
-    std::list<std::string> output;
+std::list<AssemblyInstruction> Tile::getFullInstructions() {
+    std::list<AssemblyInstruction> output;
 
     for (auto& instr : instructions) {
         std::visit(util::overload {
             [&](AssemblyInstruction& asmb) {
-                output.push_back(asmb.toString());
+                output.push_back(asmb);
             },
             [&](StatementTile tile) {
                 for (auto& sub_instr : tile->getFullInstructions()) {

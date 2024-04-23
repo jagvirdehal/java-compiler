@@ -250,6 +250,18 @@ struct Label : public NoOperandInstruction {
     {}
 };
 
+struct GlobalSymbol : public NoOperandInstruction {
+    GlobalSymbol(std::string symbol) 
+        : NoOperandInstruction{"global " + symbol} 
+    {}
+};
+
+struct ExternSymbol : public NoOperandInstruction {
+    ExternSymbol(std::string symbol) 
+        : NoOperandInstruction{"extern " + symbol} 
+    {}
+};
+
 /* SetX instructions which set destination to 1 or 0 based on flags from Cmp */
 
 struct BoolSetInstruction : public AssemblyCommon {

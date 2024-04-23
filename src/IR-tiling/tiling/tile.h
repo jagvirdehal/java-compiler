@@ -54,7 +54,7 @@ class Tile {
     void add_instructions_before(std::vector<Instruction>);
 
     // Get the full assembly instructions for this tile, expanding other tiles it uses
-    std::list<std::string> getFullInstructions();
+    std::list<AssemblyInstruction> getFullInstructions();
 
     // Construct tile with instructions
     Tile(std::vector<Instruction>);
