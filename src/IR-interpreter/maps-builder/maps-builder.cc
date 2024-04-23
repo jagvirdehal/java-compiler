@@ -1,5 +1,4 @@
 #include "maps-builder.h"
-#include "IR-interpreter/util/errors.h"
 #include "utillities/overload.h"
 #include <iostream>
 
@@ -7,7 +6,7 @@ MapsBuilder::MapsBuilder() : index(0) {}
 
 void MapsBuilder::addNameToCurrentIndex(std::string name) {
     if (nameToIndex.find(name) != nameToIndex.end()) {
-        throw new InternalCompilerError("Error - encountered duplicate name " + name + " in the IR tree -- go fix the generator.");
+        THROW_SimulatorError("Error - encountered duplicate name " + name + " in the IR tree -- go fix the generator.");
     }
     nameToIndex[name] = index;
 }

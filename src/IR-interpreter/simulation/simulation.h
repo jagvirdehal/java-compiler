@@ -7,7 +7,6 @@
 #include <vector>
 #include <stack>
 #include "IR-interpreter/expr-stack/expr-stack.h"
-#include "IR-interpreter/util/errors.h"
 #include "IR-interpreter/maps-builder/maps-builder.h"
 
 extern int WORD_SIZE;
