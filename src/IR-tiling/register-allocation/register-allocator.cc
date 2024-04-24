@@ -38,9 +38,9 @@ AssemblyInstruction RegisterAllocator::storeAbstractRegister(std::string abstrac
 void RegisterAllocator::replaceAbstracts(AssemblyInstruction& instruction, std::list<AssemblyInstruction>& target) {
     std::string original_instruction_text = instruction.toString();
 
-    auto used_registers = instruction.getUsedRegisters();
-    auto read_registers = instruction.getReadRegisters();
-    auto write_registers = instruction.getWriteRegisters();
+    auto used_registers = instruction.getUsedAbstractRegisters();
+    auto read_registers = instruction.getReadAbstractRegisters();
+    auto write_registers = instruction.getWriteAbstractRegisters();
 
     target.push_back(LineBreak());
 
@@ -60,29 +60,25 @@ void RegisterAllocator::replaceAbstracts(AssemblyInstruction& instruction, std::
     std::unordered_map<std::string, std::string> abstract_to_real;
 
     for (auto& reg : used_registers) {
-        if (!isRealRegister(reg)) {
-            abstract_to_real[reg] = instruction_registers[next_real_reg++];
-            instruction.replaceRegister(reg, abstract_to_real[reg]);
-        }
+        abstract_to_real[reg] = instruction_registers[next_real_reg++];
+        instruction.replaceRegister(reg, abstract_to_real[reg]);
     }
 
     // Add a load instruction for each abstract register the instruction reads
     for (auto& reg : read_registers) {
-        if (!isRealRegister(reg)) {
-            target.emplace_back(loadAbstractRegister(abstract_to_real[reg], reg));
-            target.back().tagWithComment("Load from " + reg);
-        }
+        target.emplace_back(loadAbstractRegister(abstract_to_real[reg], reg));
+        target.back().tagWithComment("Load from " + reg);
     }
 
     // Add the original instruction, now modified to use real registers
-    if (next_real_reg > 0 && !instruction.hasComment()) instruction.tagWithComment(original_instruction_text); // Tag if we did replacement
+    if (next_real_reg > 0 && !instruction.hasComment()) {
+        instruction.tagWithComment(original_instruction_text); // Tag if we did replacement
+    }
     target.push_back(instruction);
 
     // Add a store instruction for each abstract register the instruction writes
     for (auto& reg : write_registers) {
-        if (!isRealRegister(reg)) {
-            target.emplace_back(storeAbstractRegister(reg, abstract_to_real[reg]));
-            target.back().tagWithComment("Store to " + reg);
-        }
+        target.emplace_back(storeAbstractRegister(reg, abstract_to_real[reg]));
+        target.back().tagWithComment("Store to " + reg);
     }
 }  

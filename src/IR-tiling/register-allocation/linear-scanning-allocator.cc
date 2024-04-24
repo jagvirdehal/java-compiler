@@ -20,14 +20,16 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
 
     std::unordered_map<Register, Interval> uncomitted_intervals;
 
-    uncomitted_intervals[REG32_STACKPTR] = Interval(0, 0, REG32_STACKPTR);
-    uncomitted_intervals[REG32_STACKBASEPTR] = Interval(0, 0, REG32_STACKBASEPTR);
+    // uncomitted_intervals[REG32_STACKPTR] = Interval(0, 0, REG32_STACKPTR);
+    // uncomitted_intervals[REG32_STACKBASEPTR] = Interval(0, 0, REG32_STACKBASEPTR);
 
     size_t current = -1;
     for (auto &instr : function_body) {
         ++current;
 
         for (auto &reg : instr.getWriteRegisters()) {
+            // Don't construct an interval for stack pointer/stack base pointer registers
+            if (stack_ptr_set.count(reg) || stack_base_ptr_set.count(reg)) continue;
             if (uncomitted_intervals.count(reg)) {
                 // Interval already open
                 //
@@ -47,6 +49,8 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
         }
 
         for (auto &reg : instr.getReadRegisters()) {
+            // Don't construct an interval for stack pointer/stack base pointer registers
+            if (stack_ptr_set.count(reg) || stack_base_ptr_set.count(reg)) continue;
             if (!uncomitted_intervals.count(reg)) {
                 THROW_CompilerError("Register " + reg + " is read without ever being written in instruction " + instr.toString());
             }

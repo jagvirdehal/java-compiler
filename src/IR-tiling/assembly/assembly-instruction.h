@@ -60,6 +60,24 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
         }, *this);
     }
 
+    std::unordered_set<std::string> getUsedAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedAbstractRegisters(); }
+        }, *this);
+    }
+
+    std::unordered_set<std::string> getWriteAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getWriteAbstractRegisters(); }
+        }, *this);
+    }
+
+    std::unordered_set<std::string> getReadAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getReadAbstractRegisters(); }
+        }, *this);
+    }
+
     void replaceRegister(std::string original_register, std::string new_register) {
         return std::visit(util::overload {
             [&](auto &x) { return x.replaceRegister(original_register, new_register); }
