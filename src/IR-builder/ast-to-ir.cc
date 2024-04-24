@@ -224,7 +224,6 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(PrefixExpression &expr) 
             return expression_ir;
         }
         case PrefixOperator::NEGATE: {
-            #warning This can be handled by embedding booleans into the jump code (L16)
             return BinOpIR::makeNegate(std::move(expression));
         }
     }
@@ -281,7 +280,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                         }
                     },
                     [&](string str_lit) {
-                        THROW_ASTtoIRError("Error casting a string to a primitive type");
+                        THROW_ASTtoIRError("Cannot cast a string to a primitive type");
                     },
                     [&](bool bool_lit) {
                         if ( *primitive == PrimitiveType::BOOLEAN ) {
@@ -657,8 +656,11 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
 
     // Instance field access
     if (auto field_obj = expr.identifier->field) {
-        int field_offset = 0;
-        #warning TODO add the offset from the class being referred to
+        auto class_obj = expr.type_accessed_on.getIfIsClass();
+        assert(class_obj);
+
+        DV class_dv = DVBuilder::getDV(class_obj);
+        int field_offset = class_dv.getFieldOffset(field_obj);
 
         return MemIR::makeExpr(
             BinOpIR::makeExpr(
@@ -827,7 +829,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayAccess &expr) {
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedThis &expr) {
-    THROW_ASTtoIRError("QualifiedThis is not supported (I think)");
+    return TempIR::makeExpr("this");
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression &expr) {
@@ -836,182 +838,176 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression 
 
     auto array_obj = Util::root_package->getJavaUtilArrays();
 
-    if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
-        vector<unique_ptr<StatementIR>> seq_vec;
-        // Primitive type
+    vector<unique_ptr<StatementIR>> seq_vec;
 
-        // Get inner expression
-        auto size_name = TempIR::generateName("size");
-        seq_vec.push_back(
-            MoveIR::makeStmt(
+    // Get inner expression
+    auto size_name = TempIR::generateName("size");
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            TempIR::makeExpr(size_name),
+            convert(*expr.expression)
+        )
+    );
+
+    // Check non-negative
+    auto error_name = LabelIR::generateName("error");
+    auto non_negative_name = LabelIR::generateName("nonneg");
+    seq_vec.push_back(
+        CJumpIR::makeStmt(
+            // t_e >= 0
+            BinOpIR::makeExpr(
+                BinOpIR::GEQ,
                 TempIR::makeExpr(size_name),
-                convert(*expr.expression)
-            )
-        );
+                ConstIR::makeZero()
+            ),
+            non_negative_name,
+            error_name
+        )
+    );
 
-        // Check non-negative
-        auto error_name = LabelIR::generateName("error");
-        auto non_negative_name = LabelIR::generateName("nonneg");
-        seq_vec.push_back(
-            CJumpIR::makeStmt(
-                // t_e >= 0
+    // Error call
+    seq_vec.push_back(LabelIR::makeStmt(error_name));
+    seq_vec.push_back(ExpIR::makeStmt(
+        CallIR::makeException()
+    ));
+
+    // Allocate space
+    auto array_name = TempIR::generateName("array");
+    seq_vec.push_back(LabelIR::makeStmt(non_negative_name));
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            TempIR::makeExpr(array_name),
+            CallIR::makeMalloc(
+                // 4*t_size + 8
                 BinOpIR::makeExpr(
-                    BinOpIR::GEQ,
-                    TempIR::makeExpr(size_name),
-                    ConstIR::makeZero()
-                ),
-                non_negative_name,
-                error_name
-            )
-        );
-
-        // Error call
-        seq_vec.push_back(LabelIR::makeStmt(error_name));
-        seq_vec.push_back(ExpIR::makeStmt(
-            CallIR::makeException()
-        ));
-
-        // Allocate space
-        auto array_name = TempIR::generateName("array");
-        seq_vec.push_back(LabelIR::makeStmt(non_negative_name));
-        seq_vec.push_back(
-            MoveIR::makeStmt(
-                TempIR::makeExpr(array_name),
-                CallIR::makeMalloc(
-                    // 4*t_size + 8
+                    BinOpIR::ADD,
                     BinOpIR::makeExpr(
-                        BinOpIR::ADD,
-                        BinOpIR::makeExpr(
-                            BinOpIR::MUL,
-                            ConstIR::makeWords(),
-                            TempIR::makeExpr(size_name)
-                        ),
-                        ConstIR::makeWords(2)
-                    )
+                        BinOpIR::MUL,
+                        ConstIR::makeWords(),
+                        TempIR::makeExpr(size_name)
+                    ),
+                    ConstIR::makeWords(2)
                 )
             )
-        );
+        )
+    );
 
-        // Write size
-        seq_vec.push_back(
-            MoveIR::makeStmt(
-                MemIR::makeExpr(TempIR::makeExpr(array_name)),
-                TempIR::makeExpr(size_name)
+    // Write size
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            MemIR::makeExpr(TempIR::makeExpr(array_name)),
+            TempIR::makeExpr(size_name)
+        )
+    );
+
+    // Attach DV
+    seq_vec.push_back(
+        // MEM(arr + 4) = DV for arrays
+        MoveIR::makeStmt(
+            MemIR::makeExpr(
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(array_name),
+                    ConstIR::makeWords()
+                )
+            ),
+            TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
+        )
+    );
+
+    // Zero initialize array (loop)
+    auto iterator_name = TempIR::generateName("iter");
+    auto start_loop = LabelIR::generateName("start_loop");
+    auto exit_loop = LabelIR::generateName("exit_loop");
+    auto dummy_name = LabelIR::generateName("dummy");
+
+    seq_vec.push_back(
+        // Move(t_i, 0)
+        MoveIR::makeStmt(
+            TempIR::makeExpr(iterator_name),
+            ConstIR::makeZero()
+        )
+    );
+    seq_vec.push_back(
+        // start_loop:
+        LabelIR::makeStmt(start_loop)
+    );
+    seq_vec.push_back(
+        // MOVE(t_i, t_i + 4)
+        MoveIR::makeStmt(
+            TempIR::makeExpr(iterator_name),
+            BinOpIR::makeExpr(
+                BinOpIR::ADD,
+                TempIR::makeExpr(iterator_name),
+                ConstIR::makeWords()
             )
-        );
-
-        // Attach DV
-        seq_vec.push_back(
-            // MEM(arr + 4) = DV for arrays
-            MoveIR::makeStmt(
-                MemIR::makeExpr(
+        )
+    );
+    seq_vec.push_back(
+        // CJump(t_i > 4 * t_size, exit_loop, start_loop)
+        CJumpIR::makeStmt(
+            BinOpIR::makeExpr(
+                BinOpIR::GT,
+                TempIR::makeExpr(iterator_name),
+                BinOpIR::makeExpr(
+                    BinOpIR::MUL,
+                    TempIR::makeExpr(size_name),
+                    ConstIR::makeWords()
+                )
+            ),
+            exit_loop,
+            dummy_name
+        )
+    );
+    seq_vec.push_back(
+        // dummy:
+        LabelIR::makeStmt(dummy_name)
+    );
+    seq_vec.push_back(
+        // MOVE(MEM(t_i + t_a + 4), 0) 
+        MoveIR::makeStmt(
+            MemIR::makeExpr(
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(iterator_name),
                     BinOpIR::makeExpr(
                         BinOpIR::ADD,
                         TempIR::makeExpr(array_name),
                         ConstIR::makeWords()
                     )
-                ),
-                TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
-            )
-        );
-
-        // Zero initialize array (loop)
-        auto iterator_name = TempIR::generateName("iter");
-        auto start_loop = LabelIR::generateName("start_loop");
-        auto exit_loop = LabelIR::generateName("exit_loop");
-        auto dummy_name = LabelIR::generateName("dummy");
-
-        seq_vec.push_back(
-            // Move(t_i, 0)
-            MoveIR::makeStmt(
-                TempIR::makeExpr(iterator_name),
-                ConstIR::makeZero()
-            )
-        );
-        seq_vec.push_back(
-            // start_loop:
-            LabelIR::makeStmt(start_loop)
-        );
-        seq_vec.push_back(
-            // MOVE(t_i, t_i + 4)
-            MoveIR::makeStmt(
-                TempIR::makeExpr(iterator_name),
-                BinOpIR::makeExpr(
-                    BinOpIR::ADD,
-                    TempIR::makeExpr(iterator_name),
-                    ConstIR::makeWords()
                 )
-            )
-        );
-        seq_vec.push_back(
-            // CJump(t_i > 4 * t_size, exit_loop, start_loop)
-            CJumpIR::makeStmt(
-                BinOpIR::makeExpr(
-                    BinOpIR::GT,
-                    TempIR::makeExpr(iterator_name),
-                    BinOpIR::makeExpr(
-                        BinOpIR::MUL,
-                        TempIR::makeExpr(size_name),
-                        ConstIR::makeWords()
-                    )
-                ),
-                exit_loop,
-                dummy_name
-            )
-        );
-        seq_vec.push_back(
-            // dummy:
-            LabelIR::makeStmt(dummy_name)
-        );
-        seq_vec.push_back(
-            // MOVE(MEM(t_i + t_a + 4), 0) 
-            MoveIR::makeStmt(
-                MemIR::makeExpr(
-                    BinOpIR::makeExpr(
-                        BinOpIR::ADD,
-                        TempIR::makeExpr(iterator_name),
-                        BinOpIR::makeExpr(
-                            BinOpIR::ADD,
-                            TempIR::makeExpr(array_name),
-                            ConstIR::makeWords()
-                        )
-                    )
-                ),
-                ConstIR::makeZero()
-            )
-        );
-        seq_vec.push_back(
-            // Jump to start_loop
-            JumpIR::makeStmt(
-                NameIR::makeExpr(start_loop)
-            )
-        );
-        seq_vec.push_back(
-            // exit_loop:
-            LabelIR::makeStmt(exit_loop)
-        );
-
-        //  INIT t_i
-        // start_loop:
-        //  t_i = t_i + 4
-        //  CJump to exit if outbounds
-        // dummy:
-        //  a[t_i] = 0
-        //  Jump to start
+            ),
+            ConstIR::makeZero()
+        )
+    );
+    seq_vec.push_back(
+        // Jump to start_loop
+        JumpIR::makeStmt(
+            NameIR::makeExpr(start_loop)
+        )
+    );
+    seq_vec.push_back(
         // exit_loop:
-        return ESeqIR::makeExpr(
-            SeqIR::makeStmt(std::move(seq_vec)),
-            // t_array + 4
-            BinOpIR::makeExpr(
-                BinOpIR::ADD,
-                TempIR::makeExpr(array_name),
-                ConstIR::makeWords()
-            )
-        );
-    } else {
-        // Non-primitive type
-        THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive array creation");
-    }
+        LabelIR::makeStmt(exit_loop)
+    );
+
+    //  INIT t_i
+    // start_loop:
+    //  t_i = t_i + 4
+    //  CJump to exit if outbounds
+    // dummy:
+    //  a[t_i] = 0
+    //  Jump to start
+    // exit_loop:
+    return ESeqIR::makeExpr(
+        SeqIR::makeStmt(std::move(seq_vec)),
+        // t_array + 4
+        BinOpIR::makeExpr(
+            BinOpIR::ADD,
+            TempIR::makeExpr(array_name),
+            ConstIR::makeWords()
+        )
+    );
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &expr) {
@@ -1445,21 +1441,13 @@ void IRBuilderVisitor::operator()(FieldDeclaration &field) {
         assert(field.variable_declarator);
         if (field.variable_declarator->expression) {
             // Non-null initalized
-            try {
-                comp_unit.appendField(name, convert(*field.variable_declarator->expression));
-            } catch (...) {
-                #warning REMOVE THIS
-                // TODO: remove
-                // Skip if unable to convert initializer
-            }
+            comp_unit.appendField(name, convert(*field.variable_declarator->expression));
         } else {
             // Null initalized
             comp_unit.appendField(name, ConstIR::makeZero());
         }
     } else {
-        // Instance field; deferred to A6
-
-        // Do nothing for now
+        #warning Empty else statement
     }
 }
 
