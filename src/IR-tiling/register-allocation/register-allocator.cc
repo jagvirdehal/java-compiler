@@ -75,7 +75,7 @@ void RegisterAllocator::replaceAbstracts(AssemblyInstruction& instruction, std::
     }
 
     // Add the original instruction, now modified to use real registers
-    if (next_real_reg > 0) instruction.tagWithComment(original_instruction_text); // Tag if we did replacement
+    if (next_real_reg > 0 && !instruction.hasComment()) instruction.tagWithComment(original_instruction_text); // Tag if we did replacement
     target.push_back(instruction);
 
     // Add a store instruction for each abstract register the instruction writes

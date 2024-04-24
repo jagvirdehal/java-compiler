@@ -84,4 +84,12 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
             }
         }, *this);
     }
+
+    bool hasComment() {
+        return std::visit(util::overload {
+            [&](auto &x) {
+                return x.tagged_comment != "";
+            }
+        }, *this);
+    }
 };

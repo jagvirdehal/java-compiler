@@ -25,10 +25,15 @@ class LinearScanningRegisterAllocator : public RegisterAllocator {
         }
 
         Interval(size_t start, size_t end, Register original_register) 
-            : start{start}, end{end}, original_register{original_register} {}
-        // Interval() = default;
-        Interval()
-            : start{0}, end{0}, original_register{""} {}
+            : start{start}, end{end}, original_register{original_register}, assignment{original_register} {}
+        Interval() = default;
+
+        std::string toString() {
+            return "Interval(" + std::to_string(start) + ", " + std::to_string(end) + ", " 
+            + original_register 
+            + " -> " 
+            + (std::get_if<Register>(&assignment) ? std::get<Register>(assignment) : std::to_string(std::get<StackOffset>(assignment))) + ")";
+        }
     };
 
     std::unordered_set<Register> allocatable_registers = {
@@ -55,6 +60,8 @@ class LinearScanningRegisterAllocator : public RegisterAllocator {
     void freeInterval(Interval& interval);
 
     void finishInactiveIntervals(size_t current_instruction);
+
+    void printIntervals();
 
   public:
     int32_t allocateRegisters(std::list<AssemblyInstruction>& function_body) override;

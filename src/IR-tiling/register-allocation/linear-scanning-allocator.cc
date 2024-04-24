@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <regex>
+#include <cassert>
 
 using namespace Assembly;
 
@@ -18,6 +19,9 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
     auto commitInterval = [&](Interval& interval) { intervals.push_back(interval); };
 
     std::unordered_map<Register, Interval> uncomitted_intervals;
+
+    uncomitted_intervals[REG32_STACKPTR] = Interval(0, 0, REG32_STACKPTR);
+    uncomitted_intervals[REG32_STACKBASEPTR] = Interval(0, 0, REG32_STACKBASEPTR);
 
     size_t current = -1;
     for (auto &instr : function_body) {
@@ -43,6 +47,9 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
         }
 
         for (auto &reg : instr.getReadRegisters()) {
+            if (!uncomitted_intervals.count(reg)) {
+                THROW_CompilerError("Register " + reg + " is read without ever being written in instruction " + instr.toString());
+            }
             // Update the end of this interval, as the live range must contain all reads since the write
             uncomitted_intervals[reg].end = current;
         }
@@ -57,6 +64,14 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
     intervals.sort([&](const Interval& first, const Interval& second) -> bool { return first.start < second.start; });
 }
 
+void LinearScanningRegisterAllocator::printIntervals() {
+    std::cout << "Printing intervals " << "\n";
+    for (auto& interval : intervals) {
+        std::cout << interval.toString() << "\n";
+    }
+    std::cout << "Done Printing intervals " << "\n\n";
+}
+
 void LinearScanningRegisterAllocator::freeInterval(Interval& interval) {
     // Free register or stack space, and remove from active intervals
     std::visit(util::overload {
@@ -64,7 +79,9 @@ void LinearScanningRegisterAllocator::freeInterval(Interval& interval) {
             free_stack_spaces.insert(offset);
         },
         [&](Register reg) {
-            free_registers.insert(reg);
+            if (allocatable_registers.count(reg)) {
+                free_registers.insert(reg);
+            }
         }
     }, interval.assignment);
 
@@ -108,7 +125,7 @@ void LinearScanningRegisterAllocator::finishInactiveIntervals(size_t current_ins
     std::list<Interval*> inactive;
 
     for (auto interval : active_intervals) {
-        if (interval->end > current_instruction) {
+        if (interval->end < current_instruction) {
             inactive.push_back(interval);
         }
     }
@@ -134,6 +151,7 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
         // Real registers need to be assigned to themselves, so if something else was,
         // kick it out and assign it to something else
         if (isRealRegister(interval.original_register)) {
+            // std::cout << "Allocation: real is " << interval.original_register << "\n";
             if (!free_registers.count(interval.original_register)) {
                 for (auto active_interval : active_intervals) {
                     if (active_interval->assignmentIs(interval.original_register)) {
@@ -177,11 +195,15 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
         activateIntervals(current);
 
         // Replace abstract registers with allocated registers
+        std::string original_string = instruction.toString();
+        bool any_regs = false;
         for (auto active_interval : active_intervals) {
             if (Register* reg_ptr = std::get_if<Register>(&active_interval->assignment)) {
                 instruction.replaceRegister(active_interval->original_register, *reg_ptr);
+                any_regs = true;
             }
         }
+        if (any_regs) instruction.tagWithComment("Reg allocated, original was " + original_string);
 
         // Replace abstract registers with instruction registers with loading/storing stack memory
         for (auto active_interval : active_intervals) {
