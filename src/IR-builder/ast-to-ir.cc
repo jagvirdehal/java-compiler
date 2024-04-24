@@ -487,9 +487,9 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExpression &expr) {
     assert(expr.class_name);
 
-    std::string class_name = expr.class_name->getFullUnderlyingQualifiedName();
     auto class_obj = expr.constructed_class;
     auto constructor_obj = expr.called_constructor;
+    std::string class_name = class_obj->full_qualified_name;
 
     DV class_dv = DVBuilder::getDV(class_obj);
     int num_fields = class_dv.field_vector.size();
@@ -695,29 +695,52 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
         );
     } else {
         // Instance method invoked
-        auto this_name = TempIR::generateName("this");
-        return ESeqIR::makeExpr(
-            MoveIR::makeStmt(
+        string this_name;
+        unique_ptr<StatementIR> stmt = nullptr;
+
+        if ( expr.parent_expr ) {
+            // If there is a parent_expr, define a stmt to move into Temp
+            this_name = TempIR::generateName("this");
+            stmt = MoveIR::makeStmt(
                 TempIR::makeExpr(this_name),
                 convert(*expr.parent_expr)
-            ),
+            );
+        } else {
+            // Else simply use "this"
+            this_name = "this";
+        }
+
+        // Define return expr based on `this_name`
+        unique_ptr<ExpressionIR> return_expr = (
             CallIR::makeExpr(
-                // *this + 4*offset
-                BinOpIR::makeExpr(
-                    BinOpIR::ADD,
-                    MemIR::makeExpr(
-                        TempIR::makeExpr(this_name)
-                    ),
+                // gets method NameIR
+                MemIR::makeExpr(
+                    // *this + 4*offset
                     BinOpIR::makeExpr(
-                        BinOpIR::MUL,
-                        ConstIR::makeExpr(DVBuilder::getAssignment(expr.called_method)),
-                        ConstIR::makeWords()
+                        BinOpIR::ADD,
+                        MemIR::makeExpr(
+                            TempIR::makeExpr(this_name)
+                        ),
+                        BinOpIR::makeExpr(
+                            BinOpIR::MUL,
+                            ConstIR::makeExpr(DVBuilder::getAssignment(expr.called_method)),
+                            ConstIR::makeWords()
+                        )
                     )
                 ),
                 TempIR::makeExpr(this_name),
                 std::move(call_args_vec)
             )
         );
+
+        if ( stmt ) {
+            return ESeqIR::makeExpr(
+                std::move(stmt),
+                std::move(return_expr)
+            );
+        } else {
+            return std::move(return_expr);
+        }
     }
 }
 
@@ -1109,7 +1132,8 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(InstanceOfExpression &expr) {
-    THROW_ASTtoIRError("TODO: Deferred to A6 - instanceof");
+    #warning TODO
+    return ConstIR::makeOne();
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ParenthesizedExpression &expr) {
