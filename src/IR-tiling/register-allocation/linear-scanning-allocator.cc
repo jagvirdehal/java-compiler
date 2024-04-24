@@ -80,6 +80,7 @@ void LinearScanningRegisterAllocator::freeInterval(Interval& interval) {
     // Free register or stack space, and remove from active intervals
     std::visit(util::overload {
         [&](StackOffset offset) {
+            std::cout << "Freed offset " << offset << " that was used by " + interval.original_register + "\n";
             free_stack_spaces.insert(offset);
         },
         [&](Register reg) {
@@ -115,12 +116,14 @@ void LinearScanningRegisterAllocator::assignInterval(Interval& interval, Registe
     // If there is a free stack space we used before, take that
     // This prevents us from having to allocate a larger stack frame than necessary
     for (auto offset : free_stack_spaces) {
+        std::cout << "Assigned " + interval.original_register + " to reused offset " << offset << "\n";
         interval.assignment = offset;
         free_stack_spaces.erase(offset);
         return;
     }
 
     // Allocate a new stack space
+    std::cout << "Assigned" + interval.original_register + " to fresh offset " << next_stack_offset << "\n";
     interval.assignment = next_stack_offset;
     next_stack_offset += 4;
 }
@@ -150,12 +153,12 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
     free_registers = allocatable_registers;
 
     for (auto& interval : intervals) {
+        std::cout << "Processing interval for " << interval.original_register << " which starts at " << interval.start << "\n";
         finishInactiveIntervals(interval.start);
 
         // Real registers need to be assigned to themselves, so if something else was,
         // kick it out and assign it to something else
         if (isRealRegister(interval.original_register)) {
-            // std::cout << "Allocation: real is " << interval.original_register << "\n";
             if (!free_registers.count(interval.original_register)) {
                 for (auto active_interval : active_intervals) {
                     if (active_interval->assignmentIs(interval.original_register)) {
@@ -177,6 +180,8 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
             assignInterval(interval);
         }
     }
+    
+    printIntervals();
 
     // Do actual instruction replacement
     std::list<AssemblyInstruction> new_instructions;

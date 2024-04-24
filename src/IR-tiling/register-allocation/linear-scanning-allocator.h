@@ -39,10 +39,10 @@ class LinearScanningRegisterAllocator : public RegisterAllocator {
     std::unordered_set<Register> allocatable_registers = {
         Assembly::REG32_ACCUM,
         Assembly::REG32_BASE,
-        Assembly::REG32_COUNTER,
+        // Assembly::REG32_COUNTER,
         Assembly::REG32_DATA,
-        Assembly::REG32_SOURCE,
-        Assembly::REG32_DEST
+        // Assembly::REG32_SOURCE,
+        // Assembly::REG32_DEST
     };
     size_t next_stack_offset = 4;
 
