@@ -20,13 +20,12 @@ class CompUnitIR {
     std::unordered_map<std::string, ExpressionIR*> static_fields;
     std::vector<std::pair<std::string, std::unique_ptr<ExpressionIR>>> child_static_fields;
 
-    std::vector<std::unique_ptr<StatementIR>> start_statements;
-
     bool staticFieldsCanonicalized = false;
 
     std::vector<std::pair<std::string, std::unique_ptr<StatementIR>>> child_canonical_static_fields;
 
   public:
+    std::vector<std::unique_ptr<StatementIR>> start_statements;
     CompUnitIR(std::string name) : name(name) {}
 
     void appendFunc(std::string name, std::unique_ptr<FuncDeclIR> func) {

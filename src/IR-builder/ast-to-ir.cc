@@ -1486,7 +1486,7 @@ void IRBuilderVisitor::operator()(ClassDeclaration &node) {
                             )
                         )
                     ),
-                    NameIR::makeExpr(method_label)
+                    NameIR::makeExpr(method_label, true)
                 )
             );
         }

@@ -48,13 +48,20 @@ class DependencyFinder : public IRSkipVisitor {
             this->visit_children(node);
             return;
         }
-        THROW_CompilerError("Function call target is not a label");
     }
 
     virtual void operator()(TempIR &node) override {
         if (!required_static_fields.count(node.getName()) && node.isGlobal) {
             // Required static field is not already included
             required_static_fields.insert(node.getName());
+        }
+        this->visit_children(node); 
+    }
+
+    virtual void operator()(NameIR &node) override {
+        if (!cu.getFunctions().count(node.getName()) && node.isGlobal) {
+            // Required function is not from this compilation unit already or already included
+            required_functions.insert(node.getName());
         }
         this->visit_children(node); 
     }
@@ -80,6 +87,7 @@ class AssemblyGenerator {
   public:
     void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method) {
         std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
+        std::vector<std::list<AssemblyInstruction>> start_commands;
         
         // Reset output directory
         std::filesystem::create_directory("output");
@@ -100,6 +108,16 @@ class AssemblyGenerator {
                         auto instructions = tile->getFullInstructions();
 
                         static_fields.emplace_back(field_name, std::move(instructions));
+                    }
+
+                    // Get start commands to dump in .text
+                    for (auto& start_stmt : cu.start_statements) {
+                        assert(start_stmt);
+
+                        auto tile = converter.tile(*start_stmt);
+                        auto instructions = tile->getFullInstructions();
+
+                        start_commands.emplace_back(std::move(instructions));
                     }
 
                     // Generate the assembly file for the compilation unit
@@ -173,6 +191,12 @@ class AssemblyGenerator {
             std::list<AssemblyInstruction> static_init;
             for (auto& [field_name, initializer_instructions] : static_fields) {
                 for (auto& instr : initializer_instructions) {
+                    static_init.push_back(instr);
+                }
+            }
+            static_init.push_back(Comment("Initialize DVs"));
+            for (auto& start_command : start_commands) {
+                for (auto& instr : start_command) {
                     static_init.push_back(instr);
                 }
             }
