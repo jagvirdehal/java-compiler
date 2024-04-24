@@ -1,0 +1,2 @@
+optimization,benchmark_name,time in ms w/ opt,time in ms w/o opt,speedup
+opt-reg-only,J1_01.java,0.5116462707519531,0.37789344787597656,0.7385834109972041
