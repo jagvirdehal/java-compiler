@@ -33,6 +33,22 @@ struct Jump : public AssemblyCommon {
     }
 };
 
+struct Call : public AssemblyCommon {
+    Call(Operand target) {
+        useOperands(target.read());
+        writeRealRegisters(REG32_ACCUM);
+
+        // Special library malloc function always reads from eax
+        if (target.toString() == "__malloc") {
+            readRealRegisters(REG32_ACCUM);
+        }
+    }
+
+    std::string toString() {
+        return "call " + getOp(1).toString();
+    }
+};
+
 struct Je : public AssemblyCommon {
     Je(Operand target) {
         useOperands(target.read());
@@ -187,14 +203,6 @@ struct Ret : public NoOperandInstruction {
     Ret(unsigned int bytes = 0) 
         : NoOperandInstruction{bytes > 0 ? "ret " + std::to_string(bytes) : "ret"} 
     {}
-};
-
-struct Call : public NoOperandInstruction {
-    Call(std::string static_label) 
-        : NoOperandInstruction{"call " + static_label} 
-    {
-        writeRealRegisters(REG32_ACCUM);
-    }
 };
 
 struct SysCall : public NoOperandInstruction {
