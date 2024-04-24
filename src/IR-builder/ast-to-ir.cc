@@ -1175,7 +1175,20 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(InstanceOfExpression &expr) {
     #warning TODO - not handling instanceof cases
-    return ConstIR::makeOne();
+    if ( !expr.expression ) { return ConstIR::makeZero(); }
+
+    if ( auto target_class = expr.type->link.getIfIsClass() ) {
+        auto source_link = TypeChecker::getLink(*expr.expression);
+        if ( auto source_class = source_link.getIfIsClass() ) {
+            if ( source_class->isRelativeTo(target_class) ) {
+                return ConstIR::makeOne();
+            } else {
+                return ConstIR::makeZero();
+            }
+        }
+    }
+
+    return ConstIR::makeZero();
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ParenthesizedExpression &expr) {

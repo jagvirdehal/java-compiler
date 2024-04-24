@@ -19,6 +19,7 @@ std::unique_ptr<ExpressionIR> CallIR::makeExpr(
     std::vector<std::unique_ptr<ExpressionIR>> args
 ) {
     if ( !_this ) {
+        // Only for malloc & exception
         return std::make_unique<ExpressionIR>(
             std::in_place_type<CallIR>,
             std::move(target),
