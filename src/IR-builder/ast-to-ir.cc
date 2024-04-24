@@ -463,13 +463,13 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
         seq_vec.push_back(
             MoveIR::makeStmt(
                 TempIR::makeExpr(chars_ref),
-                MemIR::makeExpr( // We might not need this MemIR here, we are not access memory, just getting memory LOCATION
+                // MemIR::makeExpr( // We might not need this MemIR here, we are not access memory, just getting memory LOCATION
                     BinOpIR::makeExpr(
                         BinOpIR::ADD,
                         TempIR::makeExpr(string_ref),
                         ConstIR::makeWords(fieldOffset)
                     )
-                )
+                // )
             )
         );
 
@@ -1183,9 +1183,13 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(InstanceOfExpression &ex
 
     if ( auto target_class = expr.type->link.getIfIsClass() ) {
         auto source_link = TypeChecker::getLink(*expr.expression);
-        if ( auto source_class = source_link.getIfIsClass() ) {
+        if ( auto source_class = source_link.getIfNonArrayIsClass() ) {
             if ( source_class->isRelativeTo(target_class) ) {
-                return ConstIR::makeOne();
+                return BinOpIR::makeExpr(
+                    BinOpIR::NEQ,
+                    convert(*expr.expression),
+                    ConstIR::makeZero()
+                );
             } else {
                 return ConstIR::makeZero();
             }
