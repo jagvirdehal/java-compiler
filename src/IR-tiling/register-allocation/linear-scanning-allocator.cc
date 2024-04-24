@@ -15,7 +15,7 @@ using namespace Assembly;
 
 void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstruction>& function_body) {
 
-    auto commitInterval = [&](const Interval& interval) { intervals.emplace_back(interval); };
+    auto commitInterval = [&](Interval& interval) { intervals.push_back(interval); };
 
     std::unordered_map<Register, Interval> uncomitted_intervals;
 
@@ -105,10 +105,16 @@ void LinearScanningRegisterAllocator::assignInterval(Interval& interval, Registe
 }
 
 void LinearScanningRegisterAllocator::finishInactiveIntervals(size_t current_instruction) {
+    std::list<Interval*> inactive;
+
     for (auto interval : active_intervals) {
         if (interval->end > current_instruction) {
-            freeInterval(*interval);
+            inactive.push_back(interval);
         }
+    }
+
+    for (auto interval : inactive) {
+        freeInterval(*interval);
     }
 }
 

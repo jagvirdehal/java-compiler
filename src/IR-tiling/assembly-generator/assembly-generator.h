@@ -13,12 +13,14 @@
 
 #include "IR-tiling/register-allocation/brainless-allocator.h"
 #include "IR-tiling/register-allocation/noop-allocator.h"
+#include "IR-tiling/register-allocation/linear-scanning-allocator.h"
 
 #include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/assembly/registers.h"
 
-#define USED_REG_ALLOCATOR BrainlessRegisterAllocator
+// #define USED_REG_ALLOCATOR BrainlessRegisterAllocator
 // #define USED_REG_ALLOCATOR NoopRegisterAllocator
+#define USED_REG_ALLOCATOR LinearScanningRegisterAllocator
 
 using namespace Assembly;
 
