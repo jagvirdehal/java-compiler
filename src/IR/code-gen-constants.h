@@ -4,6 +4,7 @@
 #include <string>
 
 #include "environment-builder/symboltableentry.h"
+#include "variant-ast/classes.h"
 
 // Conventions that need to be the same across different code gen components
 class CGConstants {
@@ -46,10 +47,16 @@ class CGConstants {
     //
     // Returns the same label for the same object every time.
     static std::string uniqueMethodLabel(MethodDeclarationObject* method) {
+        if (method->ast_reference->hasModifier(Modifier::NATIVE)) {
+            return "NATIVE" + method->full_qualified_name;
+        }
         return generateUniqueLabel(method, method->full_qualified_name, "_METHOD", next_method_id, method_labels);
     };
 
     static std::string uniqueStaticMethodLabel(MethodDeclarationObject* method) {
+        if (method->ast_reference->hasModifier(Modifier::NATIVE)) {
+            return "NATIVE" + method->full_qualified_name;
+        }
         return generateUniqueLabel(method, method->full_qualified_name, "_STATIC_METHOD", next_method_id, method_labels);
     };
 

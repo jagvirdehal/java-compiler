@@ -88,7 +88,11 @@ class AssemblyGenerator {
     void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method) {
         std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
         std::vector<std::list<AssemblyInstruction>> start_commands;
-        
+
+        // For startup dependencies
+        CompUnitIR dummy_cu = CompUnitIR("");
+        DependencyFinder startup_dep_finder = DependencyFinder(dummy_cu);
+
         // Reset output directory
         std::filesystem::create_directory("output");
         for (auto& path: std::filesystem::directory_iterator("output")) {
@@ -104,6 +108,7 @@ class AssemblyGenerator {
                     for (auto& [field_name, field_initalizer] : cu.getCanonFieldList()) {
                         assert(field_initalizer);
 
+                        startup_dep_finder(*field_initalizer);
                         auto tile = converter.tile(*field_initalizer);
                         auto instructions = tile->getFullInstructions();
 
@@ -114,6 +119,7 @@ class AssemblyGenerator {
                     for (auto& start_stmt : cu.start_statements) {
                         assert(start_stmt);
 
+                        startup_dep_finder(*start_stmt);
                         auto tile = converter.tile(*start_stmt);
                         auto instructions = tile->getFullInstructions();
 
@@ -164,6 +170,20 @@ class AssemblyGenerator {
             }, ir);
         }
 
+        // Combine all static/startup into one list of instructions
+        std::list<AssemblyInstruction> static_init;
+        for (auto& [field_name, initializer_instructions] : static_fields) {
+            for (auto& instr : initializer_instructions) {
+                static_init.push_back(instr);
+            }
+        }
+        static_init.push_back(Comment("Initialize DVs"));
+        for (auto& start_command : start_commands) {
+            for (auto& instr : start_command) {
+                static_init.push_back(instr);
+            }
+        }
+
         // Emit a main file for the entrypoint
         std::ofstream start_file {"output/main.s"};
         
@@ -180,26 +200,16 @@ class AssemblyGenerator {
         }
         start_file 
         << GlobalSymbol("_start").toString()             << "\n"
-        << ExternSymbol("__exception").toString()        << "\n"
-        << ExternSymbol("__malloc").toString()           << "\n"
-        << ExternSymbol(entrypoint_method).toString()    << "\n\n"
+        << ExternSymbol(entrypoint_method).toString()    << "\n";
+
+        // Add startup dependencies
+        for (auto& required_fun : startup_dep_finder.getRequiredFunctions()) {
+            start_file << ExternSymbol(required_fun).toString() << "\n";
+        }
+        start_file << "\n"
 
         << Label("_start").toString() << "\n"
             << "\t" << Comment("Initialize all the static fields of all the compilation units, in order").toString() << "\n";
-
-            // Combine into one list of instructions
-            std::list<AssemblyInstruction> static_init;
-            for (auto& [field_name, initializer_instructions] : static_fields) {
-                for (auto& instr : initializer_instructions) {
-                    static_init.push_back(instr);
-                }
-            }
-            static_init.push_back(Comment("Initialize DVs"));
-            for (auto& start_command : start_commands) {
-                for (auto& instr : start_command) {
-                    static_init.push_back(instr);
-                }
-            }
 
             // Initialize all, with the same stack frame
             int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(static_init);
