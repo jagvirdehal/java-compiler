@@ -95,6 +95,10 @@ struct ClassDeclarationObject : public TypeDeclarationObject {
     // Determine if this is a subtype of another class/interface
     bool isSubType(TypeDeclaration);
 
+    bool isSubClassOf(ClassDeclarationObject *other);
+    bool isSuperClassOf(ClassDeclarationObject *other);
+    bool isRelativeTo(ClassDeclarationObject *other);
+
     ClassDeclarationObject(const std::string &identifier);
 };
 

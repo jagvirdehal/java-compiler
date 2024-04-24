@@ -222,6 +222,24 @@ bool ClassDeclarationObject::isSubType(TypeDeclaration type_decl) {
     return ::isSubType(this, type_decl);
 }
 
+bool ClassDeclarationObject::isSubClassOf(ClassDeclarationObject *other) {
+    if ( other == nullptr ) { return false; }
+    if ( this == other ) { return true; }
+    if ( other == Util::root_package->getJavaLangObject() ) { return true; }
+
+    if ( this->extended ) {
+        return ( this->extended->isSubClassOf(other) );
+    }
+    return false;
+}
+bool ClassDeclarationObject::isSuperClassOf(ClassDeclarationObject *other) {
+    if ( other == nullptr ) { return false; }
+    return other->isSubClassOf(this);
+}
+bool ClassDeclarationObject::isRelativeTo(ClassDeclarationObject *other) {
+    return (this->isSubClassOf(other) || other->isSubClassOf(this));
+}
+
 bool InterfaceDeclarationObject::isSubType(TypeDeclaration type_decl) {
     return ::isSubType(this, type_decl);
 }
