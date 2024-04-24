@@ -242,7 +242,9 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
 
     return std::visit(util::overload{
         [&](Literal &lit) {
+            // Source is a literal
             if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
+                // Target is primitive
                 unique_ptr<ExpressionIR> expr;
 
                 std::visit(util::overload{
@@ -299,11 +301,51 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                 }, lit);
 
                 return expr;
+            } else if ( auto str_ptr = get_if<string>(&lit) ) {
+                // Target non-primitive && source is a string
+                auto source_obj = Util::root_package->getJavaLangString();
+                if ( auto target_obj = expr.type->link.getIfIsClass() ) {
+                    if ( source_obj == target_obj ) {
+                        // Do nothing
+                        return convert(lit);
+                    } else if ( source_obj->isSubClassOf(target_obj) ) {
+                        // Upcasting
+                        vector<unique_ptr<StatementIR>> seq_vec;
+
+                        string cast_result = TempIR::generateName("cast_result");
+                        // Move(cast_result, literal)
+                        seq_vec.push_back(
+                            MoveIR::makeStmt(
+                                TempIR::makeExpr(cast_result),
+                                convert(lit)
+                            )
+                        );
+
+                        // Change DV of cast_result
+                        seq_vec.push_back(
+                            MoveIR::makeStmt(
+                                MemIR::makeExpr(TempIR::makeExpr(cast_result)),
+                                TempIR::makeExpr(CGConstants::uniqueClassLabel(target_obj), true)
+                            )
+                        );
+
+                        return ESeqIR::makeExpr(
+                            SeqIR::makeStmt(std::move(seq_vec)),
+                            TempIR::makeExpr(cast_result)
+                        );
+                    }
+                }
+
+                THROW_ASTtoIRError("Unable to convert String to " + expr.type->link.toSimpleString());
             } else {
-                THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive casts");
+                // Target is non-primitive
+                THROW_CompilerError("Incorrect cast expression - should not reach here");
             } // if
         },
-        [&](auto &node) { return convert(*expr.expression); }
+        [&](auto &node) {
+            #warning Not handling all of the casting cases
+            return convert(*expr.expression);
+        }
     }, *expr.expression);
 }
 
@@ -1132,7 +1174,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(InstanceOfExpression &expr) {
-    #warning TODO
+    #warning TODO - not handling instanceof cases
     return ConstIR::makeOne();
 }
 
@@ -1436,7 +1478,7 @@ void IRBuilderVisitor::operator()(ClassDeclaration &node) {
                     MemIR::makeExpr(
                         BinOpIR::makeExpr(
                             BinOpIR::ADD,
-                            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj)),
+                            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj), true),
                             BinOpIR::makeExpr(
                                 BinOpIR::MUL,
                                 ConstIR::makeExpr(DVBuilder::getAssignment(method)),
