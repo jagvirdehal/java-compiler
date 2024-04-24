@@ -339,6 +339,10 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                 THROW_ASTtoIRError("Unable to convert String to " + expr.type->link.toSimpleString());
             } else {
                 // Target is non-primitive
+                if ( get_if<nullptr_t>(&lit) ) {
+                    return ConstIR::makeZero();
+                }
+
                 THROW_CompilerError("Incorrect cast expression - should not reach here");
             } // if
         },
