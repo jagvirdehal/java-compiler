@@ -19,6 +19,9 @@ def single_correct_output_test(program_path, compiler_args: List[str]) -> bool:
     # if program is a directory, get all files from the direcory and add to a list
     files = get_all_files(program_path, ".java") if os.path.isdir(program_path) else [program_path]
 
+    open("ir_result.tmp", 'w').close()
+    open("ir_canon_result.tmp", 'w').close()
+
     result = subprocess.run([joosc_executable, *compiler_args, *files, *stdlib_files])
 
     if result.returncode in (0, 43):
