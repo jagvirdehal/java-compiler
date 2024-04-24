@@ -85,9 +85,20 @@ IRCanonicalizer::LoweredExpression IRCanonicalizer::convert(ExpressionIR &ir) {
                 );
             }
 
-            auto target = std::make_unique<ExpressionIR>(std::move(node.getTarget()));
-
-            result.statements.emplace_back(CallIR(std::move(target), std::move(arg_temporaries)));
+            if (std::get_if<NameIR>(&node.getTarget())) {
+                // Call target is a label
+                auto target = std::make_unique<ExpressionIR>(std::move(node.getTarget()));
+                result.statements.emplace_back(CallIR(std::move(target), std::move(arg_temporaries)));
+            } else {
+                // Call target is an arbitrary expression
+                auto lowered_target = convert(node.getTarget());
+                result.statements = concatenate(
+                    result.statements,
+                    lowered_target.statements,
+                    CallIR(std::move(lowered_target.expression), std::move(arg_temporaries))
+                );
+            }
+            
             result.expression = std::make_unique<ExpressionIR>(TempIR(CGConstants::ABSTRACT_RET));
 
             return result;

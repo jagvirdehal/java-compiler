@@ -325,11 +325,9 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
         },
 
         [&](CallIR &node) {
-            std::string called_function;
+            std::string called_function = "";
             if (auto name = std::get_if<NameIR>(&node.getTarget())) {
                 called_function = name->getName();
-            } else {
-                THROW_CompilerError("Function call target is not a label"); 
             }
 
             // Special case : __malloc call
@@ -340,7 +338,7 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
 
                 generic_tile.add_instructions_after({
                     tile(REG32_ACCUM, *node.getArgs().front()),
-                    Call(called_function)
+                    Call(LabelUse(called_function))
                 });
 
                 return;
@@ -358,8 +356,18 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
             }
             generic_tile.add_instructions_before({Comment("Call: pushing arguments onto stack")});
 
-            // Perform call instruction on function label
-            generic_tile.add_instruction(Call(called_function));
+            // Perform call
+            if (std::get_if<NameIR>(&node.getTarget())) {
+                // Perform call instruction on function label
+                generic_tile.add_instruction(Call(LabelUse(called_function)));
+            } else {
+                // Perform call on arbitrary expression
+                std::string function_address = newAbstractRegister();
+                generic_tile.add_instructions_after({
+                    tile(function_address, node.getTarget()),
+                    Call(function_address)
+                });
+            }
 
             // Pop arguments from stack
             generic_tile.add_instruction(Comment("Call: popping arguments off stack"));
