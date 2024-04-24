@@ -12,14 +12,20 @@ public:
         COMPILER_DEVELOPMENT_ERROR = 1,
         USAGE_ERROR = 2,
     };
-private:
 
+    enum OptimizationType {
+        UNOPTIMIZED,
+        REGISTER_ALLOCATION,
+    };
+private:
     bool trace_parsing = false;
     bool trace_scanning = false;
     bool output_rc = false;
     bool emit_code = true;
     bool run_ir = false;
     bool run_java_ir = false;
+    OptimizationType optimization;
+
     std::list<std::string> strfiles; // Strings inputted as files
     std::list<std::string> infiles; // File input
 
@@ -33,6 +39,9 @@ public:
     void setEmitCode(bool value) { emit_code = value; }
     void setRunIR(bool value) { run_ir = value; }
     void setRunJavaIR(bool value) { run_java_ir = value; }
+    void setOptimizationType(OptimizationType optype) {
+        optimization = optype;
+    }
 
     // File names
     void addInFile(std::string filename) { infiles.push_back(filename); }

@@ -61,6 +61,9 @@ interpret-java-test: build
 interpret-java-test-single: build
 	python3 tests/src/integration/interpret_java.py -s ${path}
 
+bench: build
+	python3 tests/src/integration/create_benchmark.py
+
 # Used to exit with non-zero if any test fails, but run them all anyway (no short-circuiting)
 _integration-test-helper: valid-invalid-test compiled-output-test
 integration-test:
