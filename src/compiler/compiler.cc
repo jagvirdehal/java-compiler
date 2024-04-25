@@ -276,12 +276,12 @@ int Compiler::run() {
             #endif
 
             if (optimization == OptimizationType::UNOPTIMIZED) {
-                #warning Add unoptimized code gen here
+                AssemblyGenerator().generateCode(IR_asts, entrypoint_method, "brainless");
             } else if (optimization == OptimizationType::REGISTER_ALLOCATION) {
-                #warning Add optimized code gen here
+                AssemblyGenerator().generateCode(IR_asts, entrypoint_method, "linear-scan");
+            } else {
+                THROW_CompilerError("Unknown optimization type");
             }
-             
-            AssemblyGenerator().generateCode(IR_asts, entrypoint_method);
         }
 
     } catch (const CompilerError &e ) {
