@@ -3,6 +3,7 @@
 #include <exception>
 #include <sstream>
 #include "compiler/compiler.h"
+#include <getopt.h>
 
 using namespace std;
 
@@ -12,37 +13,72 @@ enum class CommandLineArg {
     TRACE_SCANNING = 's',
     STATIC_ANALYSIS_ONLY = 'a', // Don't emit IR/assembly; used for pre-A5 tests
     RUN_AND_TEST_IR = 'i',
-    RUN_AND_TEST_JAVA_IR = 'j'
+    RUN_AND_TEST_JAVA_IR = 'j',
+    NO_OPTIMIZATION = 'o',
+    OPTIMIZED = 'b'
 };
 
+
 struct cmd_error {};
+
 
 int main(int argc, char *argv[]) {
     Compiler compiler;
 
+    const struct option longopts[] = {
+        { "output-return", no_argument, 0, 'r'},
+        { "trace-parsing", no_argument, 0, 'p'},
+        { "trace-scanning", no_argument, 0, 's'},
+        { "static-analysis", no_argument, 0, 'a'},
+        { "run-ir", no_argument, 0, 'i'},
+        { "run-java-ir", no_argument, 0, 'j'},
+        { "opt-none", no_argument, 0, 'o'},
+        { "optimized", required_argument, 0, 'b'},
+        {0, 0, 0, 0}
+    };
+
+    int index;
+    char c = 0;
+
     try {
         // Handle optional arguments (eg. enable parse debugging)
-        char opt;
-        while ((opt = getopt(argc, argv, "psraij")) != -1) {
-            switch (opt) {
-                case static_cast<char>(CommandLineArg::OUTPUT_RETURN):
+        while (true) {
+            c = getopt_long(argc, argv, "rpsaijob:", longopts, &index);
+
+            if ( c == -1 ) break;
+
+            switch (c) {
+                case 'r':
                     compiler.setOutputRC(true);
                     break;
-                case static_cast<char>(CommandLineArg::TRACE_PARSING):
+                case 'p':
                     compiler.setTraceParsing(true);
                     break;
-                case static_cast<char>(CommandLineArg::TRACE_SCANNING):
+                case 's':
                     compiler.setTraceScanning(true);
                     break;
-                case static_cast<char>(CommandLineArg::STATIC_ANALYSIS_ONLY):
+                case 'a':
                     compiler.setEmitCode(false);
                     break;
-                case static_cast<char>(CommandLineArg::RUN_AND_TEST_IR):
+                case 'i':
                     compiler.setRunIR(true);
                     break;
-                case static_cast<char>(CommandLineArg::RUN_AND_TEST_JAVA_IR):
+                case 'j':
                     compiler.setRunJavaIR(true);
                     break;
+                case 'o':
+                    compiler.setOptimizationType(Compiler::OptimizationType::UNOPTIMIZED);
+                    std::cout << "compiled without optimization" << std::endl;
+                    break;
+                case 'b':
+                {
+                    std::string arg = std::string(optarg);
+                    if (arg == "opt-reg-only") {
+                        std::cout << "compiled with reg alloc optimization" << std::endl;
+                        compiler.setOptimizationType(Compiler::OptimizationType::REGISTER_ALLOCATION);
+                    }
+                    break;
+                }
                 default:
                     throw cmd_error();
             }
@@ -67,7 +103,7 @@ int main(int argc, char *argv[]) {
             << "Usage:\n\t"
             << argv[0]
             << " <filename>"
-            << " [ -p -s -r -a -i ]"
+            << " [ --output-return [-r] \n\t\t--trace-parsing [-p] \n\t\t--trace-scanning [-s] \n\t\t--static-analysis [-a] \n\t\t--run-ir [-i] \n\t\t--run-java-ir [-j] \n\t\t--opt-none [-o] \n\t\t--optimized [-b] (opt-reg-only)]"
             << "\n";
         return compiler.finishWith(Compiler::USAGE_ERROR);
     } catch ( ... ) {

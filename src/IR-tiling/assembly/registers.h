@@ -93,4 +93,41 @@ namespace Assembly {
         return assembly_ns_real_reg_set.count(reg) ? true : false;
     }
 
+    // Return all the registers that overlap with reg (i.e. al is the low part of eax, so both are the same register set)
+    static const inline std::unordered_set<std::string> accum_set 
+        = {REG8L_ACCUM, REG8H_ACCUM, REG16_ACCUM, REG32_ACCUM};
+
+    static const inline std::unordered_set<std::string> base_set
+        = {REG8L_BASE, REG8H_BASE, REG16_BASE, REG32_BASE};
+    
+    static const inline std::unordered_set<std::string> counter_set
+        = {REG8L_COUNTER, REG8H_COUNTER, REG16_COUNTER, REG32_COUNTER};
+
+    static const inline std::unordered_set<std::string> data_set
+        = {REG8L_DATA, REG8H_DATA, REG16_DATA, REG32_DATA};
+    
+    static const inline std::unordered_set<std::string> source_set
+        = {REG8L_SOURCE, REG16_SOURCE, REG32_SOURCE};
+
+    static const inline std::unordered_set<std::string> dest_set
+        = {REG8L_DEST, REG16_DEST, REG32_DEST};
+
+    static const inline std::unordered_set<std::string> stack_ptr_set
+        = {REG8L_STACKPTR, REG16_STACKPTR, REG32_STACKPTR};
+
+    static const inline std::unordered_set<std::string> stack_base_ptr_set
+        = {REG8L_STACKBASEPTR, REG16_STACKBASEPTR, REG32_STACKBASEPTR};
+
+    std::unordered_set<std::string> inline sameRegisterSet(std::string reg) {
+        if (accum_set.count(reg)) return accum_set;
+        if (base_set.count(reg)) return base_set;
+        if (counter_set.count(reg)) return counter_set;
+        if (data_set.count(reg)) return data_set;
+        if (source_set.count(reg)) return source_set;
+        if (dest_set.count(reg)) return dest_set;
+        if (stack_ptr_set.count(reg)) return stack_ptr_set;
+        if (stack_base_ptr_set.count(reg)) return stack_base_ptr_set;
+        return {reg};
+    }
+
 }; // namespace Assembly

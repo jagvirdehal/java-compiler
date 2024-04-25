@@ -274,7 +274,13 @@ int Compiler::run() {
                     }
                 }
             #endif
-            
+
+            if (optimization == OptimizationType::UNOPTIMIZED) {
+                #warning Add unoptimized code gen here
+            } else if (optimization == OptimizationType::REGISTER_ALLOCATION) {
+                #warning Add optimized code gen here
+            }
+             
             AssemblyGenerator().generateCode(IR_asts, entrypoint_method);
         }
 
