@@ -344,6 +344,20 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
                 return;
             }
 
+            // Special case : NATIVEjava.io.OutputStream.nativeWrite call
+            if (called_function == "NATIVEjava.io.OutputStream.nativeWrite") {
+                if (node.getArgs().size() != 1) {
+                    THROW_CompilerError("NATIVEjava.io.OutputStream.nativeWrite called with " + std::to_string(node.getArgs().size()) + " args instead of 1");
+                }
+
+                generic_tile.add_instructions_after({
+                    tile(REG32_ACCUM, *node.getArgs().front()),
+                    Call(LabelUse(called_function))
+                });
+
+                return;
+            }
+
             // Not a special case
 
             // Push arguments onto stack, in reverse order (CDECL)
