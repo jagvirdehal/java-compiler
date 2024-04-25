@@ -400,7 +400,7 @@ StatementTile IRToTilesConverter::tile(StatementIR &ir) {
         },
 
         [&](CommentIR &node) {
-            generic_tile = Tile(std::vector<Instruction>());
+            generic_tile = Tile({Comment(node.getText())});
         }
     }, ir);
 
