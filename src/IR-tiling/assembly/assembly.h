@@ -38,8 +38,8 @@ struct Call : public AssemblyCommon {
         useOperands(target.read());
         writeRealRegisters(REG32_ACCUM);
 
-        // Special library malloc function always reads from eax
-        if (target.toString() == "__malloc") {
+        // Special library functions always read from eax
+        if (target.toString() == "__malloc" || target.toString() == "NATIVEjava.io.OutputStream.nativeWrite") {
             readRealRegisters(REG32_ACCUM);
         }
     }
