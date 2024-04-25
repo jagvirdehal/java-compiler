@@ -248,6 +248,21 @@ class AssemblyCommon {
         return std::move(result);
     }
 
+    std::unordered_set<std::string> getUsedLabels() {
+        std::unordered_set<std::string> result;
+
+        for (auto& operand : operands) {
+            std::visit(util::overload {
+                [&](LabelUse& label) {
+                    result.insert(label.text);
+                },
+                [&](auto&) {}
+            }, operand);
+        }
+
+        return std::move(result);
+    }
+
     std::unordered_set<std::string> getUsedAbstractRegisters() {
         std::unordered_set<std::string> result;
         for (auto &reg : getUsedRegisters()) {

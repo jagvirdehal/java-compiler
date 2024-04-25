@@ -42,6 +42,12 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
     using AssemblyInstructionInheritedVariant::AssemblyInstructionInheritedVariant;
     using AssemblyInstructionInheritedVariant::operator=;
 
+    std::unordered_set<std::string> getUsedLabels() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedLabels(); }
+        }, *this);
+    }
+
     std::unordered_set<std::string> getUsedRegisters() {
         return std::visit(util::overload {
             [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedRegisters(); }

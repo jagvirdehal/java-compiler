@@ -60,7 +60,12 @@ class LinearScanningRegisterAllocator : public RegisterAllocator {
 
     std::list<Interval*> active_intervals = {};
 
+    void activateIntervals(size_t current);
+
     void constructIntervals(std::list<AssemblyInstruction>& function_body);
+
+    // Extend intervals to cover jumping to labels which use the abstract register
+    void extendToLabels(std::list<AssemblyInstruction>& function_body);
 
     size_t getFreeStackOffset();
 

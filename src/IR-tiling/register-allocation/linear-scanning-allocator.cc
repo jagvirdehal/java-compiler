@@ -14,6 +14,14 @@
 
 using namespace Assembly;
 
+void LinearScanningRegisterAllocator::activateIntervals(size_t current) {
+    for (auto& interval : intervals) {
+        if (interval.start == current) {
+            assignInterval(interval, interval.assignment);
+        }
+    }
+};
+
 void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstruction>& function_body) {
 
     auto commitInterval = [&](Interval& interval) { 
@@ -79,6 +87,40 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
 
     // Sort intervals by starting
     intervals.sort([&](const Interval& first, const Interval& second) -> bool { return first.start < second.start; });
+}
+
+void LinearScanningRegisterAllocator::extendToLabels(std::list<AssemblyInstruction>& function_body) {
+
+    active_intervals = {};
+    std::unordered_map<std::string, size_t> label_indices;
+    std::unordered_map<std::string, std::unordered_set<Interval*>> label_to_no_clobber_intervals;
+
+    size_t current = -1;
+    for (auto &instr : function_body) {
+        ++current;
+
+        finishInactiveIntervals(current);
+        activateIntervals(current);
+
+        if (std::get_if<Label>(&instr)) {
+            label_indices[instr.toString()] = current;
+            for (auto active_interval : active_intervals) {
+                // This interval should be considered still active at any code that jumps to the label
+                //
+                // Any code that jumps to this label should not clobber any register active at the label definition
+                label_to_no_clobber_intervals[instr.toString()].insert(active_interval);
+            }
+            continue;
+        }
+
+        for (auto &label : instr.getUsedLabels()) {
+            // This is an instruction that MAY jump to label
+            auto& no_clobber = label_to_no_clobber_intervals[label + ":"];
+            for (auto interval : no_clobber) {
+                if (interval->end < current) interval->end = current;
+            }
+        }
+    }
 }
 
 void LinearScanningRegisterAllocator::printIntervals(bool print_reals_too) {
@@ -190,6 +232,13 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
 
     // Construct the live intervals
     constructIntervals(function_body);
+    // std::cout << "pre extended\n";
+    // printIntervals(false);
+    // std::cout << "\n\n";
+    extendToLabels(function_body);
+
+    // std::cout << "extended\n";
+    // printIntervals(false);
 
     // Assign each interval a register or stack space
     active_intervals = {};
@@ -208,14 +257,6 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
     std::list<AssemblyInstruction> new_instructions;
 
     active_intervals = {};
-
-    auto activateIntervals = [&](size_t current){
-        for (auto& interval : intervals) {
-            if (interval.start == current) {
-                assignInterval(interval, interval.assignment);
-            }
-        }
-    };
 
     size_t current = -1;
     for (auto &instruction : function_body) {
