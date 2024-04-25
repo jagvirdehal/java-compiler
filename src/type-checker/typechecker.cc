@@ -339,6 +339,12 @@ void TypeChecker::operator()(QualifiedIdentifier &qid) {
                         // Must determine type T of Q
                         this->operator()(Q);
                         LinkedType T = Q.link;
+
+                        // Make the previous identifiers in qid have the links to the objects (ugly but works)
+                        for (size_t i = 0; i < qid.identifiers.size() - 1; ++i) {
+                            qid.identifiers[i] = Q.identifiers[i];
+                        }
+
                         if (!T.isReferenceType()) {
                             THROW_TypeCheckerError(
                                 "Primitive ExpressionName precedes ExpressionName in " + Q.getQualifiedName());
@@ -348,9 +354,6 @@ void TypeChecker::operator()(QualifiedIdentifier &qid) {
                             qid.link = LinkedType(PrimitiveType::INT);
                             qid.setRefersToArrayLength();
                             qid.is_variable = false;
-
-                            // Make the second last identifier in qid have the link to the array (ugly but works)
-                            qid.identifiers[qid.identifiers.size() - 2] = Q.identifiers.back();
 
                             return;
                         }
