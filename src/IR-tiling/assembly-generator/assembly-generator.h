@@ -46,13 +46,20 @@ class DependencyFinder : public IRSkipVisitor {
             this->visit_children(node);
             return;
         }
-        THROW_CompilerError("Function call target is not a label");
     }
 
     virtual void operator()(TempIR &node) override {
         if (!required_static_fields.count(node.getName()) && node.isGlobal) {
             // Required static field is not already included
             required_static_fields.insert(node.getName());
+        }
+        this->visit_children(node); 
+    }
+
+    virtual void operator()(NameIR &node) override {
+        if (!cu.getFunctions().count(node.getName()) && node.isGlobal) {
+            // Required function is not from this compilation unit already or already included
+            required_functions.insert(node.getName());
         }
         this->visit_children(node); 
     }
@@ -78,7 +85,12 @@ class AssemblyGenerator {
   public:
     void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method, std::string allocatorChoice = "linear-scan") {
         std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
-        
+        std::vector<std::list<AssemblyInstruction>> start_commands;
+
+        // For startup dependencies
+        CompUnitIR dummy_cu = CompUnitIR("");
+        DependencyFinder startup_dep_finder = DependencyFinder(dummy_cu);
+
         // Reset output directory
         std::filesystem::create_directory("output");
         for (auto& path: std::filesystem::directory_iterator("output")) {
@@ -94,10 +106,22 @@ class AssemblyGenerator {
                     for (auto& [field_name, field_initalizer] : cu.getCanonFieldList()) {
                         assert(field_initalizer);
 
+                        startup_dep_finder(*field_initalizer);
                         auto tile = converter.tile(*field_initalizer);
                         auto instructions = tile->getFullInstructions();
 
                         static_fields.emplace_back(field_name, std::move(instructions));
+                    }
+
+                    // Get start commands to dump in .text
+                    for (auto& start_stmt : cu.start_statements) {
+                        assert(start_stmt);
+
+                        startup_dep_finder(*start_stmt);
+                        auto tile = converter.tile(*start_stmt);
+                        auto instructions = tile->getFullInstructions();
+
+                        start_commands.emplace_back(std::move(instructions));
                     }
 
                     // Generate the assembly file for the compilation unit
@@ -153,6 +177,20 @@ class AssemblyGenerator {
             }, ir);
         }
 
+        // Combine all static/startup into one list of instructions
+        std::list<AssemblyInstruction> static_init;
+        for (auto& [field_name, initializer_instructions] : static_fields) {
+            for (auto& instr : initializer_instructions) {
+                static_init.push_back(instr);
+            }
+        }
+        static_init.push_back(Comment("Initialize DVs"));
+        for (auto& start_command : start_commands) {
+            for (auto& instr : start_command) {
+                static_init.push_back(instr);
+            }
+        }
+
         // Emit a main file for the entrypoint
         std::ofstream start_file {"output/main.s"};
         
@@ -169,20 +207,16 @@ class AssemblyGenerator {
         }
         start_file 
         << GlobalSymbol("_start").toString()             << "\n"
-        << ExternSymbol("__exception").toString()        << "\n"
-        << ExternSymbol("__malloc").toString()           << "\n"
-        << ExternSymbol(entrypoint_method).toString()    << "\n\n"
+        << ExternSymbol(entrypoint_method).toString()    << "\n";
+
+        // Add startup dependencies
+        for (auto& required_fun : startup_dep_finder.getRequiredFunctions()) {
+            start_file << ExternSymbol(required_fun).toString() << "\n";
+        }
+        start_file << "\n"
 
         << Label("_start").toString() << "\n"
             << "\t" << Comment("Initialize all the static fields of all the compilation units, in order").toString() << "\n";
-
-            // Combine into one list of instructions
-            std::list<AssemblyInstruction> static_init;
-            for (auto& [field_name, initializer_instructions] : static_fields) {
-                for (auto& instr : initializer_instructions) {
-                    static_init.push_back(instr);
-                }
-            }
 
             // Initialize all, with the same stack frame
             int32_t stack_size_for_initializer = 0;

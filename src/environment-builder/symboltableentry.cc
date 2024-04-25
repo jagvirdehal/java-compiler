@@ -167,6 +167,38 @@ ClassDeclarationObject* PackageDeclarationObject::getJavaLangObject() {
     return object_class;
 }
 
+ClassDeclarationObject* PackageDeclarationObject::getJavaLangString() {
+    ClassDeclarationObject* object_class = nullptr;
+    try {
+        auto java_package_variant = sub_packages->lookupUniqueSymbol("java");
+        auto& java_package = std::get<PackageDeclarationObject>(*java_package_variant);
+        auto lang_package_variant = java_package.sub_packages->lookupUniqueSymbol("lang");
+        auto& lang_package = std::get<PackageDeclarationObject>(*lang_package_variant);
+        auto object_class_variant = lang_package.classes->lookupUniqueSymbol("String");
+        object_class = &std::get<ClassDeclarationObject>(*object_class_variant);
+    } catch (...) {
+        // Error getting java.lang.Object
+        THROW_TypeLinkerError("java.lang.String not found");
+    }
+    return object_class;
+}
+
+ClassDeclarationObject* PackageDeclarationObject::getJavaUtilArrays() {
+    ClassDeclarationObject* object_class = nullptr;
+    try {
+        auto java_package_variant = sub_packages->lookupUniqueSymbol("java");
+        auto& java_package = std::get<PackageDeclarationObject>(*java_package_variant);
+        auto lang_package_variant = java_package.sub_packages->lookupUniqueSymbol("util");
+        auto& lang_package = std::get<PackageDeclarationObject>(*lang_package_variant);
+        auto object_class_variant = lang_package.classes->lookupUniqueSymbol("Arrays");
+        object_class = &std::get<ClassDeclarationObject>(*object_class_variant);
+    } catch (...) {
+        // Error getting java.lang.Object
+        THROW_TypeLinkerError("java.util.Arrays not found");
+    }
+    return object_class;
+}
+
 bool isSubType(TypeDeclaration sub, TypeDeclaration super) {
     if (sub == super) { return true; }
     return std::visit(util::overload { 
@@ -188,6 +220,24 @@ bool isSubType(TypeDeclaration sub, TypeDeclaration super) {
 
 bool ClassDeclarationObject::isSubType(TypeDeclaration type_decl) {
     return ::isSubType(this, type_decl);
+}
+
+bool ClassDeclarationObject::isSubClassOf(ClassDeclarationObject *other) {
+    if ( other == nullptr ) { return false; }
+    if ( this == other ) { return true; }
+    if ( other == Util::root_package->getJavaLangObject() ) { return true; }
+
+    if ( this->extended ) {
+        return ( this->extended->isSubClassOf(other) );
+    }
+    return false;
+}
+bool ClassDeclarationObject::isSuperClassOf(ClassDeclarationObject *other) {
+    if ( other == nullptr ) { return false; }
+    return other->isSubClassOf(this);
+}
+bool ClassDeclarationObject::isRelativeTo(ClassDeclarationObject *other) {
+    return (this->isSubClassOf(other) || other->isSubClassOf(this));
 }
 
 bool InterfaceDeclarationObject::isSubType(TypeDeclaration type_decl) {

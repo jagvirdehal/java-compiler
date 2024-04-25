@@ -27,6 +27,10 @@ void IRCanonicalizer::convert(IR &ir) {
                 func->getBody() = SeqIR(convert(func->getBody()).statements);
             }
 
+            for (auto& start_stmt : node.start_statements) {
+                *start_stmt = SeqIR(convert(*start_stmt).statements);
+            }
+
             std::vector<std::pair<std::string, std::unique_ptr<StatementIR>>> child_canonical_static_fields;
             for (auto& [static_field_name, initializer] : node.getFieldList()) {
                 LoweredExpression lowered = convert(*initializer);

@@ -4,6 +4,7 @@
 #include "utillities/overload.h"
 #include "utillities/util.h"
 #include "variant-ast/expressions.h"
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -11,6 +12,7 @@
 #include "exceptions/exceptions.h"
 #include "IR-interpreter/simulation/simulation.h"
 #include "IR/code-gen-constants.h"
+#include "dispatch-vector.h"
 using namespace std;
 
 /***************************************************************
@@ -222,7 +224,6 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(PrefixExpression &expr) 
             return expression_ir;
         }
         case PrefixOperator::NEGATE: {
-            #warning This can be handled by embedding booleans into the jump code (L16)
             return BinOpIR::makeNegate(std::move(expression));
         }
     }
@@ -241,7 +242,9 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
 
     return std::visit(util::overload{
         [&](Literal &lit) {
+            // Source is a literal
             if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
+                // Target is primitive
                 unique_ptr<ExpressionIR> expr;
 
                 std::visit(util::overload{
@@ -279,7 +282,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                         }
                     },
                     [&](string str_lit) {
-                        THROW_ASTtoIRError("Error casting a string to a primitive type");
+                        THROW_ASTtoIRError("Cannot cast a string to a primitive type");
                     },
                     [&](bool bool_lit) {
                         if ( *primitive == PrimitiveType::BOOLEAN ) {
@@ -298,11 +301,55 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(CastExpression &expr) {
                 }, lit);
 
                 return expr;
+            } else if ( auto str_ptr = get_if<string>(&lit) ) {
+                // Target non-primitive && source is a string
+                auto source_obj = Util::root_package->getJavaLangString();
+                if ( auto target_obj = expr.type->link.getIfIsClass() ) {
+                    if ( source_obj == target_obj ) {
+                        // Do nothing
+                        return convert(lit);
+                    } else if ( source_obj->isSubClassOf(target_obj) ) {
+                        // Upcasting
+                        vector<unique_ptr<StatementIR>> seq_vec;
+
+                        string cast_result = TempIR::generateName("cast_result");
+                        // Move(cast_result, literal)
+                        seq_vec.push_back(
+                            MoveIR::makeStmt(
+                                TempIR::makeExpr(cast_result),
+                                convert(lit)
+                            )
+                        );
+
+                        // Change DV of cast_result
+                        seq_vec.push_back(
+                            MoveIR::makeStmt(
+                                MemIR::makeExpr(TempIR::makeExpr(cast_result)),
+                                TempIR::makeExpr(CGConstants::uniqueClassLabel(target_obj), true)
+                            )
+                        );
+
+                        return ESeqIR::makeExpr(
+                            SeqIR::makeStmt(std::move(seq_vec)),
+                            TempIR::makeExpr(cast_result)
+                        );
+                    }
+                }
+
+                THROW_ASTtoIRError("Unable to convert String to " + expr.type->link.toSimpleString());
             } else {
-                THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive casts");
+                // Target is non-primitive
+                if ( get_if<nullptr_t>(&lit) ) {
+                    return ConstIR::makeZero();
+                }
+
+                THROW_CompilerError("Incorrect cast expression - should not reach here");
             } // if
         },
-        [&](auto &node) { return convert(*expr.expression); }
+        [&](auto &node) {
+            #warning Not handling all of the casting cases
+            return convert(*expr.expression);
+        }
     }, *expr.expression);
 }
 
@@ -311,10 +358,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
     if ( auto lit = std::get_if<int64_t>(&expr) ) {
         // int64_t
         int64_t value = *lit;
-        auto const_ir = make_unique<ExpressionIR>(
-            in_place_type<ConstIR>,
-            value
-        );
+        auto const_ir = ConstIR::makeExpr(value);
         return const_ir;
     } else if ( auto lit = std::get_if<bool>(&expr) ) {
         // bool
@@ -326,30 +370,279 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
     } else if ( auto lit = std::get_if<char>(&expr) ) {
         // char
         char value = *lit;
-        auto const_ir = make_unique<ExpressionIR>(
-            in_place_type<ConstIR>,
-            value
-        );
+        auto const_ir = ConstIR::makeExpr(value);
         return const_ir;
     } else if ( auto lit = std::get_if<string>(&expr) ) {
         // string
         string value = *lit;
 
-        THROW_ASTtoIRError("TODO: Deferred to A6 - unhandled literal type");
+        // Get the java.lang.String class
+        auto string_class = Util::root_package->getJavaLangString();
+        vector<unique_ptr<StatementIR>> seq_vec;
 
+        // Get the dispatch vector of that class
+        DV string_dv = DVBuilder::getDV(string_class);
+        int num_fields = string_dv.field_vector.size();
+
+        // Create the string reference, -> this will be returned as the result
+        std::string string_ref = TempIR::generateName("string_ref");
+
+        // Allocate space for class -> point the string reference to the newly allocated memory
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(string_ref),
+                CallIR::makeMalloc(ConstIR::makeExpr(4 * (num_fields + 1)))
+            )
+        );
+
+        // Write dispatch vector to first loc
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(string_ref)),
+                // Location of dispatch vector
+                TempIR::makeExpr(CGConstants::uniqueClassLabel(string_class), true)
+            )
+        );
+
+        // Initialize all fields
+        for ( int i = 0; i < num_fields; i++ ) {
+            unique_ptr<ExpressionIR> init_expr;
+            if ( auto &field_expr = string_dv.field_vector[i]->ast_reference->variable_declarator->expression ) {
+                init_expr = convert(*field_expr);
+            } else {
+                init_expr = ConstIR::makeZero();
+            }
+
+            seq_vec.push_back(
+                MoveIR::makeStmt(
+                    MemIR::makeExpr(BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(string_ref),
+                        ConstIR::makeWords(i + 1)
+                    )),
+                    std::move(init_expr)
+                )
+            );
+        }
+
+        // Create arg vector
+        vector<unique_ptr<ExpressionIR>> arg_vec;
+
+        // Get the zero arg constructor for the string class
+        MethodDeclarationObject* string_constructor_no_arguments = nullptr;
+        for ( auto &method : string_class->method_list ) {
+            if ( method->is_constructor && method->getParameters().size() == 0 ) {
+                string_constructor_no_arguments = method;
+                break;
+            }
+        }
+
+        // Make sure we found the required constructor
+        assert(string_constructor_no_arguments);
+
+        // Call constructor
+        seq_vec.push_back(
+            ExpIR::makeStmt(
+                CallIR::makeExpr(
+                    NameIR::makeExpr(CGConstants::uniqueMethodLabel(string_constructor_no_arguments)),
+                    TempIR::makeExpr(string_ref),
+                    std::move(arg_vec)
+                )
+            )
+        );
+
+        // Get the field declaration object for the "chars" field (this is where the actual string is stored)
+        auto field = string_class->accessible_fields["chars"];
+        // Get the field offset of that object
+        int fieldOffset = string_dv.getFieldOffset(field);
+
+        // Create a reference to that part of memory
+        std::string chars_ref = TempIR::generateName("chars_ref");
+        
+        // Move nmemory location of chars into chars ref
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(chars_ref),
+                // MemIR::makeExpr( // We might not need this MemIR here, we are not access memory, just getting memory LOCATION
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        TempIR::makeExpr(string_ref),
+                        ConstIR::makeWords(fieldOffset)
+                    )
+                // )
+            )
+        );
+
+        // Resize the chars field in the string to 4 * sizeof value + 8
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                CallIR::makeMalloc(ConstIR::makeExpr(4 * value.size() + 8))
+            )
+        );
+
+        // Write size
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(MemIR::makeExpr(TempIR::makeExpr(chars_ref))),
+                ConstIR::makeExpr(value.size())
+            )
+        );
+
+        // Attach array DV
+        auto array_obj = Util::root_package->getJavaUtilArrays();
+        seq_vec.push_back(
+            // MEM(arr + 4) = DV for arrays
+            MoveIR::makeStmt(
+                MemIR::makeExpr(BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                    ConstIR::makeWords()
+                )),
+                TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
+            )
+        );
+
+        // Initialize the new chars array, starting at MEM[arr + 8]
+        for (int i = 0; i < value.length(); i++) {
+            char c = value[i];
+            seq_vec.push_back(
+                MoveIR::makeStmt(
+                    MemIR::makeExpr(BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                        ConstIR::makeWords(i + 2)
+                    )),
+                    ConstIR::makeExpr(c)
+                )
+            );
+        }
+
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                    ConstIR::makeWords()
+                )
+            )
+        );
+
+        return ESeqIR::makeExpr(
+            SeqIR::makeStmt(std::move(seq_vec)), 
+            TempIR::makeExpr(string_ref)
+        );
     } else if ( auto lit = std::get_if<nullptr_t>(&expr) ) {
         // nullptr_t
         return ConstIR::makeZero();
     } else {
-        THROW_ASTtoIRError("Unhandled literal type");
+        THROW_CompilerError("Unhandled literal type");
     }
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExpression &expr) {
     assert(expr.class_name);
 
-    // Call the appropriate constructor of the class
-    THROW_ASTtoIRError("TODO: Deferred to A6 - feature of OOP");
+    auto class_obj = expr.constructed_class;
+    auto constructor_obj = expr.called_constructor;
+    std::string class_name = class_obj->full_qualified_name;
+
+    DV class_dv = DVBuilder::getDV(class_obj);
+    int num_fields = class_dv.field_vector.size();
+
+    vector<unique_ptr<StatementIR>> seq_vec;
+    std::string obj_ref = TempIR::generateName("obj_ref");
+
+    // Allocate space for class
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            TempIR::makeExpr(obj_ref),
+            CallIR::makeMalloc(ConstIR::makeExpr(4 * (num_fields + 1)))
+        )
+    );
+
+    // Write dispatch vector to first loc
+    seq_vec.push_back(
+        MoveIR::makeStmt(
+            MemIR::makeExpr(TempIR::makeExpr(obj_ref)),
+            // Location of dispatch vector
+            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj), true)
+        )
+    );
+
+    // Initialize all fields
+    for ( int field_offset = 0; field_offset < num_fields; field_offset++ ) {
+        unique_ptr<ExpressionIR> init_expr;
+        if ( auto &field_expr = class_dv.field_vector[field_offset]->ast_reference->variable_declarator->expression ) {
+            init_expr = convert(*field_expr);
+        } else {
+            init_expr = ConstIR::makeZero();
+        }
+
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(obj_ref),
+                    ConstIR::makeExpr(4 * (field_offset + 1))
+                )),
+                std::move(init_expr)
+            )
+        );
+    }
+
+    // Super constructor
+    std::function<void(ClassDeclarationObject*)> construct = (
+        [&](ClassDeclarationObject* superclass_obj) -> void {
+            if ( superclass_obj->extended ) {
+                construct(superclass_obj->extended);
+            }
+
+            if ( superclass_obj != class_obj ) {
+                // Is not the same class as obj
+                for ( auto &method : superclass_obj->method_list ) {
+                    if ( method->is_constructor && method->getParameters().size() == 0 ) {
+                        // Call default constructor
+                        seq_vec.push_back(
+                            ExpIR::makeStmt(
+                                CallIR::makeExpr(
+                                    NameIR::makeExpr(CGConstants::uniqueMethodLabel(method)),
+                                    TempIR::makeExpr(obj_ref),
+                                    {}
+                                )
+                            )
+                        );
+                    }
+                }
+            }
+        }
+    );
+
+    // Call super constructors
+    construct(class_obj);
+    
+    // Create arg vector
+    vector<unique_ptr<ExpressionIR>> arg_vec;
+    for ( auto &arg : expr.arguments ) {
+        arg_vec.push_back(convert(arg));
+    }
+    
+    // Call constructor
+    seq_vec.push_back(
+        ExpIR::makeStmt(
+            CallIR::makeExpr(
+                NameIR::makeExpr(CGConstants::uniqueMethodLabel(constructor_obj)),
+                TempIR::makeExpr(obj_ref),
+                std::move(arg_vec)
+            )
+        )
+    );
+
+    return ESeqIR::makeExpr(
+        SeqIR::makeStmt(std::move(seq_vec)), 
+        TempIR::makeExpr(obj_ref)
+    );
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
@@ -419,10 +712,20 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
     }
 
     // Instance field access
-    if (expr.identifier->field) {
-        #warning TODO: (A6) access the correct field of the correct object, will require typechecking changes probably
-        auto name = CGConstants::uniqueFieldLabel(expr.identifier->field); // Incorrect because we don't have this info yet
-        return TempIR::makeExpr(name);
+    if (auto field_obj = expr.identifier->field) {
+        auto class_obj = expr.type_accessed_on.getIfIsClass();
+        assert(class_obj);
+
+        DV class_dv = DVBuilder::getDV(class_obj);
+        int field_offset = class_dv.getFieldOffset(field_obj);
+
+        return MemIR::makeExpr(
+            BinOpIR::makeExpr(
+                BinOpIR::ADD,
+                convert(*expr.expression),
+                ConstIR::makeExpr(4*(field_offset + 1))
+            )
+        );
     }
 
     THROW_CompilerError("Identifier '" + expr.identifier->name + "' not linked to a field");
@@ -440,16 +743,59 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
         // Static method invoked
         return CallIR::makeExpr(
             NameIR::makeExpr(CGConstants::uniqueStaticMethodLabel(expr.called_method)),
+            (expr.called_method->ast_reference->hasModifier(Modifier::NATIVE)) ? nullptr :
+            ConstIR::makeZero(),
             std::move(call_args_vec)
         );
     } else {
         // Instance method invoked
-        #warning TODO OOP a6 feature not properly implemented yet
+        string this_name;
+        unique_ptr<StatementIR> stmt = nullptr;
 
-        return CallIR::makeExpr(
-            NameIR::makeExpr(CGConstants::uniqueMethodLabel(expr.called_method)),
-            std::move(call_args_vec)
+        if ( expr.parent_expr ) {
+            // If there is a parent_expr, define a stmt to move into Temp
+            this_name = TempIR::generateName("this");
+            stmt = MoveIR::makeStmt(
+                TempIR::makeExpr(this_name),
+                convert(*expr.parent_expr)
+            );
+        } else {
+            // Else simply use "this"
+            this_name = "this";
+        }
+
+        // Define return expr based on `this_name`
+        unique_ptr<ExpressionIR> return_expr = (
+            CallIR::makeExpr(
+                // gets method NameIR
+                MemIR::makeExpr(
+                    // *this + 4*offset
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        MemIR::makeExpr(
+                            TempIR::makeExpr(this_name)
+                        ),
+                        BinOpIR::makeExpr(
+                            BinOpIR::MUL,
+                            ConstIR::makeExpr(DVBuilder::getAssignment(expr.called_method)),
+                            ConstIR::makeWords()
+                        )
+                    )
+                ),
+                (expr.called_method->ast_reference->hasModifier(Modifier::NATIVE)) ? nullptr :
+                TempIR::makeExpr(this_name),
+                std::move(call_args_vec)
+            )
         );
+
+        if ( stmt ) {
+            return ESeqIR::makeExpr(
+                std::move(stmt),
+                std::move(return_expr)
+            );
+        } else {
+            return std::move(return_expr);
+        }
     }
 }
 
@@ -561,27 +907,31 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayAccess &expr) {
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedThis &expr) {
-    THROW_ASTtoIRError("QualifiedThis is not supported (I think)");
+    return TempIR::makeExpr("this");
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression &expr) {
     assert(expr.type);
     assert(expr.expression);
 
-    if ( auto primitive = expr.type->link.getIfIsPrimitive() ) {
-        // Primitive type
+    auto array_obj = Util::root_package->getJavaUtilArrays();
 
-        // Get inner expression
-        auto size_name = TempIR::generateName("size");
-        auto size_get = MoveIR::makeStmt(
+    vector<unique_ptr<StatementIR>> seq_vec;
+
+    // Get inner expression
+    auto size_name = TempIR::generateName("size");
+    seq_vec.push_back(
+        MoveIR::makeStmt(
             TempIR::makeExpr(size_name),
             convert(*expr.expression)
-        );
+        )
+    );
 
-        // Check non-negative
-        auto error_name = LabelIR::generateName("error");
-        auto non_negative_name = LabelIR::generateName("nonneg");
-        auto non_negative_check = CJumpIR::makeStmt(
+    // Check non-negative
+    auto error_name = LabelIR::generateName("error");
+    auto non_negative_name = LabelIR::generateName("nonneg");
+    seq_vec.push_back(
+        CJumpIR::makeStmt(
             // t_e >= 0
             BinOpIR::makeExpr(
                 BinOpIR::GEQ,
@@ -590,16 +940,20 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression 
             ),
             non_negative_name,
             error_name
-        );
+        )
+    );
 
-        // Error call
-        auto error_label = LabelIR::makeStmt(error_name);
-        auto error_call = ExpIR::makeStmt(std::move(CallIR::makeException()));
+    // Error call
+    seq_vec.push_back(LabelIR::makeStmt(error_name));
+    seq_vec.push_back(ExpIR::makeStmt(
+        CallIR::makeException()
+    ));
 
-        // Allocate space
-        auto non_negative_label = LabelIR::makeStmt(non_negative_name);
-        auto array_name = TempIR::generateName("array");
-        auto malloc = MoveIR::makeStmt(
+    // Allocate space
+    auto array_name = TempIR::generateName("array");
+    seq_vec.push_back(LabelIR::makeStmt(non_negative_name));
+    seq_vec.push_back(
+        MoveIR::makeStmt(
             TempIR::makeExpr(array_name),
             CallIR::makeMalloc(
                 // 4*t_size + 8
@@ -613,120 +967,125 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ArrayCreationExpression 
                     ConstIR::makeWords(2)
                 )
             )
-        );
+        )
+    );
 
-        // Write size
-        auto write_size = MoveIR::makeStmt(
+    // Write size
+    seq_vec.push_back(
+        MoveIR::makeStmt(
             MemIR::makeExpr(TempIR::makeExpr(array_name)),
             TempIR::makeExpr(size_name)
-        );
+        )
+    );
 
-        // Zero initialize array (loop)
-        auto iterator_name = TempIR::generateName("iter");
-        auto start_loop = LabelIR::generateName("start_loop");
-        auto exit_loop = LabelIR::generateName("exit_loop");
-        auto dummy_name = LabelIR::generateName("dummy");
-        vector<unique_ptr<StatementIR>> seq_vec;
+    // Attach DV
+    seq_vec.push_back(
+        // MEM(arr + 4) = DV for arrays
+        MoveIR::makeStmt(
+            MemIR::makeExpr(
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr(array_name),
+                    ConstIR::makeWords()
+                )
+            ),
+            TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
+        )
+    );
 
-        seq_vec.push_back(std::move(size_get));
-        seq_vec.push_back(std::move(non_negative_check));
-        seq_vec.push_back(std::move(error_label));
-        seq_vec.push_back(std::move(error_call));
-        seq_vec.push_back(std::move(non_negative_label));
-        seq_vec.push_back(std::move(malloc));
-        seq_vec.push_back(std::move(write_size));
+    // Zero initialize array (loop)
+    auto iterator_name = TempIR::generateName("iter");
+    auto start_loop = LabelIR::generateName("start_loop");
+    auto exit_loop = LabelIR::generateName("exit_loop");
+    auto dummy_name = LabelIR::generateName("dummy");
 
-        seq_vec.push_back(
-            // Move(t_i, 0)
-            MoveIR::makeStmt(
+    seq_vec.push_back(
+        // Move(t_i, 0)
+        MoveIR::makeStmt(
+            TempIR::makeExpr(iterator_name),
+            ConstIR::makeZero()
+        )
+    );
+    seq_vec.push_back(
+        // start_loop:
+        LabelIR::makeStmt(start_loop)
+    );
+    seq_vec.push_back(
+        // MOVE(t_i, t_i + 4)
+        MoveIR::makeStmt(
+            TempIR::makeExpr(iterator_name),
+            BinOpIR::makeExpr(
+                BinOpIR::ADD,
                 TempIR::makeExpr(iterator_name),
-                ConstIR::makeZero()
+                ConstIR::makeWords()
             )
-        );
-        seq_vec.push_back(
-            // start_loop:
-            LabelIR::makeStmt(start_loop)
-        );
-        seq_vec.push_back(
-            // MOVE(t_i, t_i + 4)
-            MoveIR::makeStmt(
+        )
+    );
+    seq_vec.push_back(
+        // CJump(t_i > 4 * t_size, exit_loop, start_loop)
+        CJumpIR::makeStmt(
+            BinOpIR::makeExpr(
+                BinOpIR::GT,
                 TempIR::makeExpr(iterator_name),
+                BinOpIR::makeExpr(
+                    BinOpIR::MUL,
+                    TempIR::makeExpr(size_name),
+                    ConstIR::makeWords()
+                )
+            ),
+            exit_loop,
+            dummy_name
+        )
+    );
+    seq_vec.push_back(
+        // dummy:
+        LabelIR::makeStmt(dummy_name)
+    );
+    seq_vec.push_back(
+        // MOVE(MEM(t_i + t_a + 4), 0) 
+        MoveIR::makeStmt(
+            MemIR::makeExpr(
                 BinOpIR::makeExpr(
                     BinOpIR::ADD,
                     TempIR::makeExpr(iterator_name),
-                    ConstIR::makeWords()
-                )
-            )
-        );
-        seq_vec.push_back(
-            // CJump(t_i > 4 * t_size, exit_loop, start_loop)
-            CJumpIR::makeStmt(
-                BinOpIR::makeExpr(
-                    BinOpIR::GT,
-                    TempIR::makeExpr(iterator_name),
-                    BinOpIR::makeExpr(
-                        BinOpIR::MUL,
-                        TempIR::makeExpr(size_name),
-                        ConstIR::makeWords()
-                    )
-                ),
-                exit_loop,
-                dummy_name
-            )
-        );
-        seq_vec.push_back(
-            // dummy:
-            LabelIR::makeStmt(dummy_name)
-        );
-        seq_vec.push_back(
-            // MOVE(MEM(t_i + t_a + 4), 0) 
-            MoveIR::makeStmt(
-                MemIR::makeExpr(
                     BinOpIR::makeExpr(
                         BinOpIR::ADD,
-                        TempIR::makeExpr(iterator_name),
-                        BinOpIR::makeExpr(
-                            BinOpIR::ADD,
-                            TempIR::makeExpr(array_name),
-                            ConstIR::makeWords()
-                        )
+                        TempIR::makeExpr(array_name),
+                        ConstIR::makeWords()
                     )
-                ),
-                ConstIR::makeZero()
-            )
-        );
-        seq_vec.push_back(
-            // Jump to start_loop
-            JumpIR::makeStmt(
-                NameIR::makeExpr(start_loop)
-            )
-        );
-        seq_vec.push_back(
-            // exit_loop:
-            LabelIR::makeStmt(exit_loop)
-        );
-
-        //  INIT t_i
-        // start_loop:
-        //  t_i = t_i + 4
-        //  CJump to exit if outbounds
-        // dummy:
-        //  a[t_i] = 0
-        //  Jump to start
+                )
+            ),
+            ConstIR::makeZero()
+        )
+    );
+    seq_vec.push_back(
+        // Jump to start_loop
+        JumpIR::makeStmt(
+            NameIR::makeExpr(start_loop)
+        )
+    );
+    seq_vec.push_back(
         // exit_loop:
-        return ESeqIR::makeExpr(
-            SeqIR::makeStmt(std::move(seq_vec)),
-            // t_array + 4
-            BinOpIR::makeExpr(
-                BinOpIR::ADD,
-                TempIR::makeExpr(array_name),
-                ConstIR::makeWords()
-            )
-        );
-    } else {
-        // Non-primitive type
-        THROW_ASTtoIRError("TODO: Deferred to A6 - non-primitive array creation");
-    }
+        LabelIR::makeStmt(exit_loop)
+    );
+
+    //  INIT t_i
+    // start_loop:
+    //  t_i = t_i + 4
+    //  CJump to exit if outbounds
+    // dummy:
+    //  a[t_i] = 0
+    //  Jump to start
+    // exit_loop:
+    return ESeqIR::makeExpr(
+        SeqIR::makeStmt(std::move(seq_vec)),
+        // t_array + 4
+        BinOpIR::makeExpr(
+            BinOpIR::ADD,
+            TempIR::makeExpr(array_name),
+            ConstIR::makeWords()
+        )
+    );
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &expr) {
@@ -805,10 +1164,48 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 
     // Instance field access
     if (auto field = expr.getIfRefersToField()) {
-        #warning TODO: (A6) access the correct field of the correct object
+        if ( expr.isSimple() ) {
+            // Get local field
+            DV class_dv = DVBuilder::getDV(current_class);
+            int field_offset = class_dv.getFieldOffset(field);
 
-        auto name = CGConstants::uniqueFieldLabel(field);
-        return TempIR::makeExpr(name);
+            return MemIR::makeExpr(
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr("this"),
+                    ConstIR::makeExpr(4*(field_offset + 1))
+                )
+            );
+        } else {
+            // Get obj.field
+            unique_ptr<ExpressionIR> obj;
+            LinkedType type;
+            if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToLocalVariable() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueLocalVariableLabel(prefix));
+                type = prefix->type;
+            } else if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToParameter() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueParameterLabel(prefix));
+                type = prefix->type;
+            } else if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToField() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueFieldLabel(prefix));
+                type = prefix->type;
+            }
+
+            if ( auto class_obj = type.getIfIsClass() ) {
+                DV class_dv = DVBuilder::getDV(class_obj);
+                int field_offset = class_dv.getFieldOffset(field);
+
+                return MemIR::makeExpr(
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        std::move(obj),
+                        ConstIR::makeExpr(4*(field_offset + 1))
+                    )
+                );
+            } else {
+                THROW_CompilerError("Unhandled field/param/localvar type: " + type.toSimpleString());
+            }
+        }
     }
 
     THROW_CompilerError(
@@ -818,7 +1215,25 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(InstanceOfExpression &expr) {
-    THROW_ASTtoIRError("TODO: Deferred to A6 - instanceof");
+    #warning TODO - not handling instanceof cases
+    if ( !expr.expression ) { return ConstIR::makeZero(); }
+
+    if ( auto target_class = expr.type->link.getIfIsClass() ) {
+        auto source_link = TypeChecker::getLink(*expr.expression);
+        if ( auto source_class = source_link.getIfNonArrayIsClass() ) {
+            if ( source_class->isRelativeTo(target_class) ) {
+                return BinOpIR::makeExpr(
+                    BinOpIR::NEQ,
+                    convert(*expr.expression),
+                    ConstIR::makeZero()
+                );
+            } else {
+                return ConstIR::makeZero();
+            }
+        }
+    }
+
+    return ConstIR::makeZero();
 }
 
 std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ParenthesizedExpression &expr) {
@@ -1101,8 +1516,45 @@ void IRBuilderVisitor::operator()(ClassDeclaration &node) {
     // CREATE CompUnit
     comp_unit = {node.environment->identifier};
 
+    auto class_obj = node.environment;
+    auto class_dv = DVBuilder::getDV(class_obj);
+    
+    // Malloc memory for dispatch vector
+    comp_unit.appendField(
+        CGConstants::uniqueClassLabel(class_obj),
+        CallIR::makeMalloc(
+            ConstIR::makeExpr(4 * (class_dv.dispatch_vector.size() + 1))
+        )
+    );
+
+    // Put function labels in dispatch vector at correct offset
+    for ( auto &method : class_dv.dispatch_vector ) {
+        if (method ) {
+            std::string method_label = CGConstants::uniqueMethodLabel(method);
+            comp_unit.appendStartStatement(
+                MoveIR::makeStmt(
+                    MemIR::makeExpr(
+                        BinOpIR::makeExpr(
+                            BinOpIR::ADD,
+                            TempIR::makeExpr(CGConstants::uniqueClassLabel(class_obj), true),
+                            BinOpIR::makeExpr(
+                                BinOpIR::MUL,
+                                ConstIR::makeExpr(DVBuilder::getAssignment(method)),
+                                ConstIR::makeWords()
+                            )
+                        )
+                    ),
+                    NameIR::makeExpr(method_label, true)
+                )
+            );
+        }
+    
+    }
+
     // Add methods and fields
+    current_class = node.environment;
     this->visit_children(node);
+    current_class = nullptr;
 }
 
 void IRBuilderVisitor::operator()(FieldDeclaration &field) {
@@ -1113,106 +1565,88 @@ void IRBuilderVisitor::operator()(FieldDeclaration &field) {
         assert(field.variable_declarator);
         if (field.variable_declarator->expression) {
             // Non-null initalized
-            try {
-                comp_unit.appendField(name, convert(*field.variable_declarator->expression));
-            } catch (...) {
-                // TODO: remove
-                // Skip if unable to convert initializer
-            }
+            comp_unit.appendField(name, convert(*field.variable_declarator->expression));
         } else {
             // Null initalized
             comp_unit.appendField(name, ConstIR::makeZero());
         }
     } else {
-        // Instance field; deferred to A6
-
-        // Do nothing for now
+        #warning Empty else statement
     }
 }
 
 void IRBuilderVisitor::operator()(MethodDeclaration &node) {
-    // Instance method
-    if (!node.hasModifier(Modifier::STATIC) || !node.environment->return_type.isPrimitive()) {
-        // Skip non-static methods
-        // If non-primitive return type or non-static method, add an empty function
+    // Don't compile native functions as they are handled by the runtime library (runtime.s)
+    if (node.hasModifier(Modifier::NATIVE)) return;
 
-        auto label = CGConstants::uniqueMethodLabel(node.environment);
+    // All other methods should be handled the same in terms of IR
 
-        // Create func_decl
-        auto func_decl = make_unique<FuncDeclIR>(
-            label,
-            SeqIR::makeEmpty(),
-            (int) node.parameters.size()
+    // CREATE FuncDecl
+
+    // Add load arguments to body statement
+    auto body_stmt = node.body ? convert(*node.body) : SeqIR::makeEmpty();
+
+    vector<unique_ptr<StatementIR>> load_args;
+    int arg_num = 0;
+
+    // Load `this` arg
+    auto abstract_arg_name = CGConstants::ABSTRACT_ARG_PREFIX + to_string(arg_num++);
+
+    load_args.push_back(
+        MoveIR::makeStmt(
+            TempIR::makeExpr("this"),
+            TempIR::makeExpr(abstract_arg_name)
+        )
+    );
+
+    // Move each value in abstract argument register from caller into parameter temp
+    for ( auto &param : node.parameters ) {
+        auto param_name = CGConstants::uniqueParameterLabel(param.environment);
+        auto abstract_arg_name = CGConstants::ABSTRACT_ARG_PREFIX + to_string(arg_num++);
+
+        load_args.push_back(
+            MoveIR::makeStmt(
+                TempIR::makeExpr(param_name),
+                TempIR::makeExpr(abstract_arg_name)
+            )
         );
-
-        // Add func_decl to comp_unit
-        comp_unit.appendFunc(label, std::move(func_decl));
-        return;
     }
 
-    if (node.environment->is_constructor) {
-        // Constructors are an Object-Oriented feature that will be handled in A6
-        return; 
-    }
-
-    // Static method
-    if (node.body) {
-        // CREATE FuncDecl
-
-        // Add load arguments to body statement
-        auto body_stmt = convert(*node.body);
-        std::visit(util::overload{
-            [&](SeqIR &seq) {
-                vector<unique_ptr<StatementIR>> load_args;
-
-                // Move each value in abstract argument register from caller into parameter temnp
-                int arg_num = 0;
-                for ( auto &param : node.parameters ) {
-                    auto param_name = CGConstants::uniqueParameterLabel(param.environment);
-                    auto param_temp = TempIR::makeExpr(param_name);
-
-                    auto abstract_arg_name = CGConstants::ABSTRACT_ARG_PREFIX + to_string(arg_num++);
-                    auto arg_temp = TempIR::makeExpr(abstract_arg_name);
-
-                    load_args.push_back(
-                        MoveIR::makeStmt(
-                            std::move(param_temp),
-                            std::move(arg_temp)
-                        )
-                    );
-                }
-
-                // Move body statements
-                for ( auto &body_stmt : seq.getStmts() ) {
-                    load_args.push_back(
-                        std::move(body_stmt)
-                    );
-                }
-
-                // Add implicit return to void functions
-                if ( node.environment->return_type.isVoid() ) {
-                    load_args.push_back(ReturnIR::makeStmt(ConstIR::makeZero()));
-                }
-
-                body_stmt = SeqIR::makeStmt(std::move(load_args));
-            },
-            [&](auto &node) {
-                THROW_CompilerError("Method body should always return a SeqIR");
+    std::visit(util::overload{
+        [&](SeqIR &seq) {
+            // Move body statements
+            for ( auto &body_stmt : seq.getStmts() ) {
+                load_args.push_back(
+                    std::move(body_stmt)
+                );
             }
-        }, *body_stmt);
 
-        auto label = CGConstants::uniqueStaticMethodLabel(node.environment);
+            // Add implicit return to void functions or empty functions
+            // if ( node.environment->return_type.isVoid() || seq.getStmts().empty()) {
+            load_args.push_back(ReturnIR::makeStmt(ConstIR::makeZero()));
+            // }
 
-        // Create func_decl
-        auto func_decl = make_unique<FuncDeclIR>(
-            label,
-            std::move(body_stmt),
-            (int) node.parameters.size()
-        );
+            body_stmt = SeqIR::makeStmt(std::move(load_args));
+        },
+        [&](auto &node) {
+            THROW_CompilerError("Method body should always return a SeqIR");
+        }
+    }, *body_stmt);
 
-        // Add func_decl to comp_unit
-        comp_unit.appendFunc(label, std::move(func_decl));
-    }
+    auto label 
+        = node.hasModifier(Modifier::STATIC) ? CGConstants::uniqueStaticMethodLabel(node.environment)
+                                             : CGConstants::uniqueMethodLabel(node.environment);
+
+    // Create func_decl
+    auto func_decl = make_unique<FuncDeclIR>(
+        label,
+        std::move(body_stmt),
+        (int) node.parameters.size()
+    );
+
+    // Add func_decl to comp_unit
+    comp_unit.appendFunc(label, std::move(func_decl));
+
 }
 
 // Rest of the operators are probably not needed?

@@ -116,3 +116,9 @@ DV::DV(ClassDeclarationObject* class_obj) {
         dispatch_vector[colour] = method;
     }
 }
+
+int DV::getFieldOffset(FieldDeclarationObject *field) {
+    auto it = std::find(field_vector.begin(), field_vector.end(), field);
+    assert(it != field_vector.end());
+    return std::distance(field_vector.begin(), it);
+}

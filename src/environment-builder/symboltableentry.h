@@ -44,6 +44,8 @@ struct PackageDeclarationObject {
 
     // Helpers
     ClassDeclarationObject* getJavaLangObject();
+    ClassDeclarationObject* getJavaLangString();
+    ClassDeclarationObject* getJavaUtilArrays();
     PackageDeclarationObject* findPackageDeclaration(std::vector<Identifier> &identifiers);
     ClassDeclarationObject* findClassDeclaration(std::vector<Identifier> &identifiers);
     InterfaceDeclarationObject* findInterfaceDeclaration(std::vector<Identifier> &identifiers);
@@ -92,6 +94,10 @@ struct ClassDeclarationObject : public TypeDeclarationObject {
 
     // Determine if this is a subtype of another class/interface
     bool isSubType(TypeDeclaration);
+
+    bool isSubClassOf(ClassDeclarationObject *other);
+    bool isSuperClassOf(ClassDeclarationObject *other);
+    bool isRelativeTo(ClassDeclarationObject *other);
 
     ClassDeclarationObject(const std::string &identifier);
 };

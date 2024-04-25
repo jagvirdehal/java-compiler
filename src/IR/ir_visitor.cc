@@ -18,6 +18,11 @@ void IRSkipVisitor::visit_children(CompUnitIR &node) {
             this->operator()(*initializer);
         }
     }
+
+    for (auto& start_stmt : node.start_statements) {
+        assert(start_stmt);
+        this->operator()(*start_stmt);
+    }
 }
 
 // FuncDeclIR

@@ -25,6 +25,7 @@ class CompUnitIR {
     std::vector<std::pair<std::string, std::unique_ptr<StatementIR>>> child_canonical_static_fields;
 
   public:
+    std::vector<std::unique_ptr<StatementIR>> start_statements;
     CompUnitIR(std::string name) : name(name) {}
 
     void appendFunc(std::string name, std::unique_ptr<FuncDeclIR> func) {
@@ -35,6 +36,10 @@ class CompUnitIR {
     void appendField(std::string name, std::unique_ptr<ExpressionIR> value) {
         child_static_fields.emplace_back(std::make_pair(name, std::move(value)));
         static_fields[name] = child_static_fields.back().second.get();
+    }
+
+    void appendStartStatement(std::unique_ptr<StatementIR> stmt) {
+        start_statements.emplace_back(std::move(stmt));
     }
 
     FuncDeclIR* getFunc(std::string name) { 
