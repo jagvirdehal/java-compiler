@@ -561,9 +561,9 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
     );
 
     // Initialize all fields
-    for ( int i = 0; i < num_fields; i++ ) {
+    for ( int field_offset = 0; field_offset < num_fields; field_offset++ ) {
         unique_ptr<ExpressionIR> init_expr;
-        if ( auto &field_expr = class_dv.field_vector[i]->ast_reference->variable_declarator->expression ) {
+        if ( auto &field_expr = class_dv.field_vector[field_offset]->ast_reference->variable_declarator->expression ) {
             init_expr = convert(*field_expr);
         } else {
             init_expr = ConstIR::makeZero();
@@ -574,7 +574,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(ClassInstanceCreationExp
                 MemIR::makeExpr(BinOpIR::makeExpr(
                     BinOpIR::ADD,
                     TempIR::makeExpr(obj_ref),
-                    ConstIR::makeWords(i + 1)
+                    ConstIR::makeExpr(4 * (field_offset + 1))
                 )),
                 std::move(init_expr)
             )
