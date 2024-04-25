@@ -59,25 +59,31 @@ def run_benchmark(optimization: str):
         compile_file(program_path, ['--opt-none'])
 
         print(f"Running unoptimized program")
-        start = time.time()
-        subprocess.run(["./main"], cwd=root_dir)
-        end = time.time()
+        total_ms_unoptimized = 0
+        for i in range(100):
+            start = time.time()
+            subprocess.run(["./main"], cwd=root_dir)
+            end = time.time()
+            total_ms_unoptimized += (end - start) * 1000
 
-        total_ms_unoptimized = (end - start) * 1000
-        print(f"Finished running unoptimized program, runtime: {colors.BOLD}{total_ms_unoptimized} ms{colors.ENDC}")
+        avg_ms_unoptimized = total_ms_unoptimized / 100
+        print(f"Finished running unoptimized program, runtime: {colors.BOLD}{avg_ms_unoptimized} ms{colors.ENDC}")
 
         print(f"{colors.OKGREEN}Compiling {file} with {optimization} optimization{colors.ENDC}")
         compile_file(program_path, ["--optimized", optimization])
 
         print(f"Running optimized program")
-        start = time.time()
-        subprocess.run(["./main"], cwd=root_dir)
-        end = time.time()
+        total_ms_optimized = 0
+        for i in range(100):
+            start = time.time()
+            subprocess.run(["./main"], cwd=root_dir)
+            end = time.time()
+            total_ms_optimized += (end - start) * 1000
 
-        total_ms_optimized = (end - start) * 1000
-        print(f"Finished running optimized program, runtime: {colors.BOLD}{total_ms_optimized} ms{colors.ENDC}")
+        avg_ms_optimized = total_ms_optimized / 100
+        print(f"Finished running optimized program, runtime: {colors.BOLD}{avg_ms_optimized} ms{colors.ENDC}")
 
-        add_to_csv(optimization, file, total_ms_optimized, total_ms_unoptimized)
+        add_to_csv(optimization, file, avg_ms_optimized, avg_ms_unoptimized)
 
 def get_benchmarks():
     root_dir = resolve_path(os.path.dirname(__file__), "../../../")
