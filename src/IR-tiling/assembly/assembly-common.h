@@ -8,6 +8,7 @@
 #include "utillities/overload.h"
 #include "exceptions/exceptions.h"
 #include "IR/code-gen-constants.h"
+#include "registers.h"
 
 // Available x86 addressing modes
 struct EffectiveAddress {
@@ -118,6 +119,16 @@ class AssemblyCommon {
         }
     }
 
+    // Add the set of registers that overlap
+    void addOverlapSet(std::unordered_set<std::string>& set) {
+        std::unordered_set<std::string> set_copy = set;
+        for (auto& reg : set_copy) {
+            for (auto& overlap_reg : Assembly::sameRegisterSet(reg)) {
+                set.insert(overlap_reg);
+            }
+        }
+    }
+
   public:
     // Get the index'th op (indexed starting at 1)
     Operand& getOp(size_t index) {
@@ -176,6 +187,7 @@ class AssemblyCommon {
             result.insert(reg);
         }
 
+        addOverlapSet(result);
         removeGlobalData(result);
         return std::move(result);
     }
@@ -199,6 +211,7 @@ class AssemblyCommon {
             result.insert(reg);
         }
         
+        addOverlapSet(result);
         removeGlobalData(result);
         return std::move(result);
     }
@@ -230,8 +243,48 @@ class AssemblyCommon {
             result.insert(reg);
         }
         
+        addOverlapSet(result);
         removeGlobalData(result);
         return std::move(result);
+    }
+
+    std::unordered_set<std::string> getUsedLabels() {
+        std::unordered_set<std::string> result;
+
+        for (auto& operand : operands) {
+            std::visit(util::overload {
+                [&](LabelUse& label) {
+                    result.insert(label.text);
+                },
+                [&](auto&) {}
+            }, operand);
+        }
+
+        return std::move(result);
+    }
+
+    std::unordered_set<std::string> getUsedAbstractRegisters() {
+        std::unordered_set<std::string> result;
+        for (auto &reg : getUsedRegisters()) {
+            if (!Assembly::isRealRegister(reg)) result.insert(reg);
+        }
+        return result;
+    }
+
+    std::unordered_set<std::string> getReadAbstractRegisters() {
+        std::unordered_set<std::string> result;
+        for (auto &reg : getReadRegisters()) {
+            if (!Assembly::isRealRegister(reg)) result.insert(reg);
+        }
+        return result;
+    }
+
+    std::unordered_set<std::string> getWriteAbstractRegisters() {
+        std::unordered_set<std::string> result;
+        for (auto &reg : getWriteRegisters()) {
+            if (!Assembly::isRealRegister(reg)) result.insert(reg);
+        }
+        return result;
     }
 
     std::string tagged_comment; // A comment this instruction is tagged with, which will be printed with it

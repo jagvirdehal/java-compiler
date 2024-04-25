@@ -42,6 +42,12 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
     using AssemblyInstructionInheritedVariant::AssemblyInstructionInheritedVariant;
     using AssemblyInstructionInheritedVariant::operator=;
 
+    std::unordered_set<std::string> getUsedLabels() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedLabels(); }
+        }, *this);
+    }
+
     std::unordered_set<std::string> getUsedRegisters() {
         return std::visit(util::overload {
             [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedRegisters(); }
@@ -57,6 +63,24 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
     std::unordered_set<std::string> getReadRegisters() {
         return std::visit(util::overload {
             [&](auto &x) -> std::unordered_set<std::string> { return x.getReadRegisters(); }
+        }, *this);
+    }
+
+    std::unordered_set<std::string> getUsedAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getUsedAbstractRegisters(); }
+        }, *this);
+    }
+
+    std::unordered_set<std::string> getWriteAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getWriteAbstractRegisters(); }
+        }, *this);
+    }
+
+    std::unordered_set<std::string> getReadAbstractRegisters() {
+        return std::visit(util::overload {
+            [&](auto &x) -> std::unordered_set<std::string> { return x.getReadAbstractRegisters(); }
         }, *this);
     }
 
@@ -81,6 +105,14 @@ struct AssemblyInstruction : public AssemblyInstructionInheritedVariant {
         return std::visit(util::overload {
             [&](auto &x) {
                 x.tagWithComment(text);
+            }
+        }, *this);
+    }
+
+    bool hasComment() {
+        return std::visit(util::overload {
+            [&](auto &x) {
+                return x.tagged_comment != "";
             }
         }, *this);
     }
