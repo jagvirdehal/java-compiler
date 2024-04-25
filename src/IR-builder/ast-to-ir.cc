@@ -1151,16 +1151,48 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
 
     // Instance field access
     if (auto field = expr.getIfRefersToField()) {
-        DV class_dv = DVBuilder::getDV(current_class);
-        int field_offset = class_dv.getFieldOffset(field);
+        if ( expr.isSimple() ) {
+            // Get local field
+            DV class_dv = DVBuilder::getDV(current_class);
+            int field_offset = class_dv.getFieldOffset(field);
 
-        return MemIR::makeExpr(
-            BinOpIR::makeExpr(
-                BinOpIR::ADD,
-                TempIR::makeExpr("this"),
-                ConstIR::makeExpr(4*(field_offset + 1))
-            )
-        );
+            return MemIR::makeExpr(
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    TempIR::makeExpr("this"),
+                    ConstIR::makeExpr(4*(field_offset + 1))
+                )
+            );
+        } else {
+            // Get obj.field
+            unique_ptr<ExpressionIR> obj;
+            LinkedType type;
+            if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToLocalVariable() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueLocalVariableLabel(prefix));
+                type = prefix->type;
+            } else if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToParameter() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueParameterLabel(prefix));
+                type = prefix->type;
+            } else if ( auto prefix = expr.getQualifiedIdentifierWithoutLast().getIfRefersToField() ) {
+                obj = TempIR::makeExpr(CGConstants::uniqueFieldLabel(prefix));
+                type = prefix->type;
+            }
+
+            if ( auto class_obj = type.getIfIsClass() ) {
+                DV class_dv = DVBuilder::getDV(class_obj);
+                int field_offset = class_dv.getFieldOffset(field);
+
+                return MemIR::makeExpr(
+                    BinOpIR::makeExpr(
+                        BinOpIR::ADD,
+                        std::move(obj),
+                        ConstIR::makeExpr(4*(field_offset + 1))
+                    )
+                );
+            } else {
+                THROW_CompilerError("Unhandled field/param/localvar type: " + type.toSimpleString());
+            }
+        }
     }
 
     THROW_CompilerError(
