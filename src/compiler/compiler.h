@@ -24,7 +24,7 @@ private:
     bool emit_code = true;
     bool run_ir = false;
     bool run_java_ir = false;
-    OptimizationType optimization;
+    OptimizationType optimization = REGISTER_ALLOCATION;
 
     std::list<std::string> strfiles; // Strings inputted as files
     std::list<std::string> infiles; // File input

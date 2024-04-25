@@ -18,10 +18,6 @@
 #include "IR-tiling/assembly/assembly.h"
 #include "IR-tiling/assembly/registers.h"
 
-// #define USED_REG_ALLOCATOR BrainlessRegisterAllocator
-// #define USED_REG_ALLOCATOR NoopRegisterAllocator
-#define USED_REG_ALLOCATOR LinearScanningRegisterAllocator
-
 using namespace Assembly;
 
 // Find methods/static fields from other compilation units that need to be linked to the assembly file for this cu
@@ -87,7 +83,7 @@ class AssemblyGenerator {
     }
 
   public:
-    void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method) {
+    void generateCode(std::vector<IR>& ir_trees, std::string entrypoint_method, std::string allocatorChoice = "linear-scan") {
         std::vector<std::pair<std::string, std::list<AssemblyInstruction>>> static_fields;
         std::vector<std::list<AssemblyInstruction>> start_commands;
 
@@ -153,7 +149,16 @@ class AssemblyGenerator {
                         // Tile and allocate registers
                         StatementTile body_tile = converter.tile(func->getBody());
                         auto body_instructions = body_tile->getFullInstructions();
-                        int32_t stack_size = USED_REG_ALLOCATOR().allocateRegisters(body_instructions);
+                        int32_t stack_size = 0; 
+                        if (allocatorChoice == "linear-scan") {
+                            stack_size = LinearScanningRegisterAllocator().allocateRegisters(body_instructions);
+                        } else if (allocatorChoice == "brainless") {
+                            stack_size = BrainlessRegisterAllocator().allocateRegisters(body_instructions);
+                        } else if (allocatorChoice == "noop") {
+                            stack_size = NoopRegisterAllocator().allocateRegisters(body_instructions);
+                        } else {
+                            THROW_CompilerError("Unknown allocator choice: " + allocatorChoice);
+                        }
 
                         // Function label
                         output_file << Label(func->getName()).toString() << "\n";
@@ -214,7 +219,16 @@ class AssemblyGenerator {
             << "\t" << Comment("Initialize all the static fields of all the compilation units, in order").toString() << "\n";
 
             // Initialize all, with the same stack frame
-            int32_t stack_size_for_initializer = USED_REG_ALLOCATOR().allocateRegisters(static_init);
+            int32_t stack_size_for_initializer = 0;
+            if (allocatorChoice == "linear-scan") {
+                stack_size_for_initializer = LinearScanningRegisterAllocator().allocateRegisters(static_init);
+            } else if (allocatorChoice == "brainless") {
+                stack_size_for_initializer = BrainlessRegisterAllocator().allocateRegisters(static_init);
+            } else if (allocatorChoice == "noop") {
+                stack_size_for_initializer = NoopRegisterAllocator().allocateRegisters(static_init);
+            } else {
+                THROW_CompilerError("Unknown allocator choice: " + allocatorChoice);
+            }
 
             start_file << makeFunctionPrologue(stack_size_for_initializer);
             for (auto &instr : static_init) {
