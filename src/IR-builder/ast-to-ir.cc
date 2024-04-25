@@ -712,11 +712,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(FieldAccess &expr) {
             BinOpIR::makeExpr(
                 BinOpIR::ADD,
                 convert(*expr.expression),
-                BinOpIR::makeExpr(
-                    BinOpIR::MUL,
-                    ConstIR::makeExpr(field_offset),
-                    ConstIR::makeWords()
-                )
+                ConstIR::makeExpr(4*(field_offset + 1))
             )
         );
     }
@@ -1162,11 +1158,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(QualifiedIdentifier &exp
             BinOpIR::makeExpr(
                 BinOpIR::ADD,
                 TempIR::makeExpr("this"),
-                BinOpIR::makeExpr(
-                    BinOpIR::MUL,
-                    ConstIR::makeExpr(field_offset),
-                    ConstIR::makeWords()
-                )
+                ConstIR::makeExpr(4*(field_offset + 1))
             )
         );
     }
