@@ -743,6 +743,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
         // Static method invoked
         return CallIR::makeExpr(
             NameIR::makeExpr(CGConstants::uniqueStaticMethodLabel(expr.called_method)),
+            (expr.called_method->ast_reference->hasModifier(Modifier::NATIVE)) ? nullptr :
             ConstIR::makeZero(),
             std::move(call_args_vec)
         );
@@ -781,6 +782,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(MethodInvocation &expr) 
                         )
                     )
                 ),
+                (expr.called_method->ast_reference->hasModifier(Modifier::NATIVE)) ? nullptr :
                 TempIR::makeExpr(this_name),
                 std::move(call_args_vec)
             )
