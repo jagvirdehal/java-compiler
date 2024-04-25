@@ -47,37 +47,6 @@ void LinearScanningRegisterAllocator::constructIntervals(std::list<AssemblyInstr
                 uncomitted_intervals[reg] = Interval(current, current, reg); 
             }
         }
-
-        // for (auto &reg : instr.getWriteRegisters()) {
-        //     // Don't construct an interval for stack pointer/stack base pointer registers
-        //     if (stack_ptr_set.count(reg) || stack_base_ptr_set.count(reg)) continue;
-        //     if (uncomitted_intervals.count(reg)) {
-        //         // Interval already open
-        //         //
-        //         // If this register wasn't read on this instruction, 
-        //         // the last live interval containing this register is committed, 
-        //         // with the end being when it was last read.
-        //         // 
-        //         // A new one is opened.
-        //         if (!instr.getReadRegisters().count(reg)) {
-        //             commitInterval(uncomitted_intervals[reg]);
-        //             uncomitted_intervals[reg] = Interval(current, current, reg);
-        //         }
-        //     } else {
-        //         // Open a new interval for the register
-        //         uncomitted_intervals[reg] = Interval(current, current, reg); 
-        //     }
-        // }
-
-        // for (auto &reg : instr.getReadRegisters()) {
-        //     // Don't construct an interval for stack pointer/stack base pointer registers
-        //     if (stack_ptr_set.count(reg) || stack_base_ptr_set.count(reg)) continue;
-        //     if (!uncomitted_intervals.count(reg)) {
-        //         THROW_CompilerError("Register " + reg + " is read without ever being written in instruction " + instr.toString());
-        //     }
-        //     // Update the end of this interval, as the live range must contain all reads since the write
-        //     uncomitted_intervals[reg].end = current;
-        // }
     }
 
     // Commit all uncomitted intrevals
@@ -147,7 +116,6 @@ void LinearScanningRegisterAllocator::freeInterval(Interval& interval) {
     // Free register or stack space, and remove from active intervals
     std::visit(util::overload {
         [&](StackOffset offset) {
-            //std::cout << "Freed offset " << offset << " that was used by " + interval.original_register + "\n";
             free_stack_spaces.insert(offset);
         },
         [&](Register reg) {
@@ -171,7 +139,7 @@ size_t LinearScanningRegisterAllocator::getFreeStackOffset() {
 
     // Allocate a new stack space
     next_stack_offset += 4;
-    return next_stack_offset;
+    return next_stack_offset - 4;
 }
 
 void LinearScanningRegisterAllocator::assignInterval(Interval& interval, Assignment predetermined) {
@@ -200,7 +168,6 @@ void LinearScanningRegisterAllocator::assignInterval(Interval& interval, Assignm
     // Must spill to stack
 
     // Allocate a new stack space
-    //std::cout << "Assigned" + interval.original_register + " to fresh offset " << next_stack_offset << "\n";
     interval.assignment = getFreeStackOffset();
 }
 
@@ -232,26 +199,16 @@ int32_t LinearScanningRegisterAllocator::allocateRegisters(std::list<AssemblyIns
 
     // Construct the live intervals
     constructIntervals(function_body);
-    // std::cout << "pre extended\n";
-    // printIntervals(false);
-    // std::cout << "\n\n";
     extendToLabels(function_body);
-
-    // std::cout << "extended\n";
-    // printIntervals(false);
 
     // Assign each interval a register or stack space
     active_intervals = {};
     free_registers = allocatable_registers;
 
     for (auto& interval : intervals) {
-        //std::cout << "Processing interval for " << interval.original_register << " which starts at " << interval.start << "\n";
         finishInactiveIntervals(interval.start);
-
         assignInterval(interval);
     }
-    
-    // printIntervals();
 
     // Do actual instruction replacement
     std::list<AssemblyInstruction> new_instructions;
