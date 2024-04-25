@@ -476,7 +476,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
         // Resize the chars field in the string to 4 * sizeof value + 8
         seq_vec.push_back(
             MoveIR::makeStmt(
-                TempIR::makeExpr(chars_ref),
+                MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
                 CallIR::makeMalloc(ConstIR::makeExpr(4 * value.size() + 8))
             )
         );
@@ -484,7 +484,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
         // Write size
         seq_vec.push_back(
             MoveIR::makeStmt(
-                TempIR::makeExpr(chars_ref),
+                MemIR::makeExpr(MemIR::makeExpr(TempIR::makeExpr(chars_ref))),
                 ConstIR::makeExpr(value.size())
             )
         );
@@ -496,7 +496,7 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
             MoveIR::makeStmt(
                 MemIR::makeExpr(BinOpIR::makeExpr(
                     BinOpIR::ADD,
-                    TempIR::makeExpr(chars_ref),
+                    MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
                     ConstIR::makeWords()
                 )),
                 TempIR::makeExpr(CGConstants::uniqueClassLabel(array_obj), true)
@@ -510,13 +510,24 @@ std::unique_ptr<ExpressionIR> IRBuilderVisitor::convert(Literal &expr) {
                 MoveIR::makeStmt(
                     MemIR::makeExpr(BinOpIR::makeExpr(
                         BinOpIR::ADD,
-                        TempIR::makeExpr(chars_ref),
+                        MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
                         ConstIR::makeWords(i + 2)
                     )),
                     ConstIR::makeExpr(c)
                 )
             );
         }
+
+        seq_vec.push_back(
+            MoveIR::makeStmt(
+                MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                BinOpIR::makeExpr(
+                    BinOpIR::ADD,
+                    MemIR::makeExpr(TempIR::makeExpr(chars_ref)),
+                    ConstIR::makeWords()
+                )
+            )
+        );
 
         return ESeqIR::makeExpr(
             SeqIR::makeStmt(std::move(seq_vec)), 
