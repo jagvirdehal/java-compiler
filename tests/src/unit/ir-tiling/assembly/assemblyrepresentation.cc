@@ -4,6 +4,7 @@
 #include "IR-tiling/assembly/assembly-instruction.h"
 
 #include "IR-tiling/register-allocation/brainless-allocator.h"
+#include "IR-tiling/register-allocation/linear-scanning-allocator.h"
 
 // Test that the assembly representation works
 
@@ -63,6 +64,26 @@ TEST(BrainlessRegisterAllocator, allocatescorrectly) {
     std::list<AssemblyInstruction> instrs = {
         Mov("%REGABS1%", 123),
         Lea("eax", EffectiveAddress("%REGABS1%"))
+    };
+
+    allocator.allocateRegisters(instrs);
+
+    for (auto &instr : instrs) {
+        std::cout << instr.toString() << "\n";
+    }
+}
+
+
+TEST(LinearScanningRegisterAllocator, allocatescorrectly) {
+    using namespace Assembly;
+
+    LinearScanningRegisterAllocator allocator;
+
+    std::list<AssemblyInstruction> instrs = {
+        SetL(REG8L_ACCUM),
+        Mov("a", 2),
+        Mov(REG32_ACCUM, "a"),
+        Mov(REG32_COUNTER, REG32_ACCUM)
     };
 
     allocator.allocateRegisters(instrs);
