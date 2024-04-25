@@ -1622,9 +1622,9 @@ void IRBuilderVisitor::operator()(MethodDeclaration &node) {
             }
 
             // Add implicit return to void functions or empty functions
-            if ( node.environment->return_type.isVoid() || seq.getStmts().empty()) {
-                load_args.push_back(ReturnIR::makeStmt(ConstIR::makeZero()));
-            }
+            // if ( node.environment->return_type.isVoid() || seq.getStmts().empty()) {
+            load_args.push_back(ReturnIR::makeStmt(ConstIR::makeZero()));
+            // }
 
             body_stmt = SeqIR::makeStmt(std::move(load_args));
         },
