@@ -1,4 +1,5 @@
-# CS444 Compiler
+# Java Compiler
+A compiler for a subset of java
 
 ## Setup
 
